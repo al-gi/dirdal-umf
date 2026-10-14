@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="nn">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Dirdal Unge Mannsforening</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Literata:ital,opsz,wght@0,7..72,400;0,7..72,600;1,7..72,400&family=Instrument+Sans:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div class="row">
+      <span class="label">Bibelgruppe</span>
+      <span id="userBox" class="meta" hidden>
+        <button class="btn link" id="profileBtn"></button>
+      </span>
+    </div>
+    <h1 id="groupName">Dirdal Unge Mannsforening</h1>
+    <div class="muted" id="groupWhen"></div>
+  </header>
+
+  <div id="demoBanner" class="notice" hidden>Demomodus: eksempeldata som berre ligg i denne nettlesaren. Fyll inn <code>config.js</code> for å kople til den felles databasen.</div>
+  <div id="status" class="notice warn" hidden></div>
+
+  <!-- INNLOGGING -->
+  <section id="auth" class="auth" hidden>
+    <div class="authcard">
+      <nav class="tabs small" role="tablist">
+        <button type="button" data-auth="login" aria-selected="true">Logg inn</button>
+        <button type="button" data-auth="signup" aria-selected="false">Ny brukar</button>
+      </nav>
+      <form class="stack" id="loginForm">
+        <label class="f">E-post<input type="email" id="liEmail" autocomplete="email" required></label>
+        <label class="f">Passord<input type="password" id="liPass" autocomplete="current-password" required></label>
+        <button class="btn primary">Logg inn</button>
+        <button type="button" class="btn link" id="forgotBtn">Gløymt passordet?</button>
+      </form>
+      <form class="stack" id="signupForm" hidden>
+        <label class="f">Namnet ditt<input id="suName" autocomplete="name" required maxlength="60"></label>
+        <label class="f">E-post<input type="email" id="suEmail" autocomplete="email" required></label>
+        <label class="f">Passord<input type="password" id="suPass" autocomplete="new-password" minlength="8" required><span class="hint">Minst 8 teikn.</span></label>
+        <label class="f">Gruppekode<input id="suCode" required autocomplete="off"><span class="hint">Få koden frå nokon i gruppa.</span></label>
+        <button class="btn primary">Opprett brukar</button>
+      </form>
+      <form class="stack" id="forgotForm" hidden>
+        <p class="muted">Skriv e-posten din, så får du ei lenkje for å velje nytt passord.</p>
+        <label class="f">E-post<input type="email" id="fgEmail" autocomplete="email" required></label>
+        <button class="btn primary">Send lenkje</button>
+        <button type="button" class="btn link" id="forgotBack">Tilbake til innlogging</button>
+      </form>
+      <form class="stack" id="newPassForm" hidden>
+        <p>Vel eit nytt passord.</p>
+        <label class="f">Nytt passord<input type="password" id="npPass" autocomplete="new-password" minlength="8" required></label>
+        <button class="btn primary">Lagre passord</button>
+      </form>
+      <p id="authMsg" class="hint" role="status"></p>
+    </div>
+  </section>
+
+  <!-- APPEN -->
+  <div id="app" hidden>
+    <nav class="tabs" role="tablist">
+      <button role="tab" data-tab="oversikt" aria-selected="true">Oversikt</button>
+      <button role="tab" data-tab="lesing" aria-selected="false">Lesing</button>
+      <button role="tab" data-tab="forum" aria-selected="false">Forum</button>
+    </nav>
+
+    <section class="pane" id="pane-oversikt">
+      <div class="block">
+        <div class="row"><span class="label">Neste samling</span><span id="nextActions"></span></div>
+        <div id="nextBox"></div>
+      </div>
+      <div class="block" id="laterBlock" hidden>
+        <span class="label">Seinare</span>
+        <div class="list" id="laterList"></div>
+      </div>
+      <div class="block">
+        <span class="label">Så langt</span>
+        <div class="stats" id="stats"></div>
+      </div>
+      <div class="block">
+        <div class="row"><span class="label">Om gruppa</span><button class="btn link" id="editInfo">Endre</button></div>
+        <div id="infoBox"></div>
+        <div class="block">
+          <span class="label" id="membersLabel">Medlemer</span>
+          <div class="chips" id="members"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="pane" id="pane-lesing" hidden>
+      <div class="block">
+        <div class="row"><span class="label">Gjennom Bibelen</span><span class="muted" id="bibleProgressText"></span></div>
+        <div class="bar"><span id="bibleProgress"></span></div>
+      </div>
+      <div class="block">
+        <div class="row">
+          <span class="label">Lesekart</span>
+          <span class="legend"><i class="cell read"></i> lese <i class="cell plan"></i> planlagt</span>
+        </div>
+        <div id="bookMap" class="bookmap"></div>
+        <div><button class="btn link" id="toggleBooks">Vis alle bøkene</button></div>
+      </div>
+      <div class="block">
+        <span class="label">Kven vi har vore hos</span>
+        <div class="chips" id="hostChips"></div>
+      </div>
+      <div class="block">
+        <div class="row"><span class="label">Kva vi har lese</span><button class="btn" id="addPast">Legg til tidlegare samling</button></div>
+        <div class="list" id="pastList"></div>
+      </div>
+    </section>
+
+    <section class="pane" id="pane-forum" hidden>
+      <div id="forumIndex" class="block">
+        <div class="row"><span class="label">Samtalar</span><button class="btn primary" id="newThreadBtn">Start ein samtale</button></div>
+        <form class="stack" id="newThreadForm" hidden>
+          <label class="f">Tittel<input id="ntTitle" maxlength="200" required placeholder="Til dømes: Kva meiner Jesus med «fødd på nytt»?"></label>
+          <label class="f">Innlegg<textarea id="ntBody" required maxlength="10000" placeholder="Skriv tankane eller spørsmålet ditt"></textarea></label>
+          <div class="row"><span></span><span><button type="button" class="btn" id="ntCancel">Avbryt</button> <button class="btn primary">Publiser</button></span></div>
+        </form>
+        <div id="threadList"></div>
+      </div>
+      <div id="threadView" class="block" hidden>
+        <div><button class="btn link" id="backToForum">← Alle samtalar</button></div>
+        <div id="threadHead"></div>
+        <div id="replyList"></div>
+        <form class="stack" id="replyForm">
+          <label class="f">Svar<textarea id="replyBody" required maxlength="10000" placeholder="Skriv eit svar"></textarea></label>
+          <div class="row"><span></span><button class="btn primary">Send svar</button></div>
+        </form>
+      </div>
+    </section>
+  </div>
+</div>
+
+<dialog id="meetingDlg">
+  <form class="stack" id="meetingForm">
+    <h2 id="meetingTitle">Ny samling</h2>
+    <div class="grid2">
+      <label class="f">Dato<input type="date" id="mDate" required></label>
+      <label class="f">Klokka<input type="time" id="mTime"></label>
+    </div>
+    <fieldset class="passage">
+      <legend>Tekst vi les</legend>
+      <div class="row"><span class="hint" id="suggestHint"></span><button type="button" class="btn link" id="suggestBtn">Hald fram der vi slapp</button></div>
+      <label class="f">Bok
+        <select id="mBook"><option value="">Ingen bibeltekst</option></select>
+      </label>
+      <div class="grid3">
+        <label class="f">Frå kapittel<select id="mFrom"></select></label>
+        <label class="f">Til kapittel<select id="mTo"></select></label>
+        <label class="f">Vers (valfritt)<input id="mVerses" placeholder="t.d. 1–21" maxlength="40"></label>
+      </div>
+      <div class="preview verse" id="mPreview"></div>
+      <label class="f">Tema eller anna lesestoff<input id="mTopic" placeholder="Valfritt" maxlength="200"></label>
+    </fieldset>
+    <label class="f">Hos kven<input id="mHost" placeholder="Namn eller familie" maxlength="80" list="hostOptions"></label>
+    <datalist id="hostOptions"></datalist>
+    <label class="f">Notat<textarea id="mNote" placeholder="Ta med, kva vi snakka om …" maxlength="4000"></textarea></label>
+    <div class="row">
+      <button type="button" class="btn danger" id="mDelete" hidden>Slett</button>
+      <span><button type="button" class="btn" id="mCancel">Avbryt</button> <button class="btn primary">Lagre</button></span>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="infoDlg">
+  <form class="stack" id="infoForm">
+    <h2>Om gruppa</h2>
+    <label class="f">Namn på gruppa<input id="iName" maxlength="80"></label>
+    <label class="f">Fast tidspunkt<input id="iWhen" maxlength="120" placeholder="Til dømes: Annakvar torsdag kl. 19.30"></label>
+    <label class="f">Om oss<textarea id="iAbout" maxlength="4000" placeholder="Kva gruppa er, korleis ei samling går føre seg …"></textarea></label>
+    <div class="row"><span></span><span><button type="button" class="btn" id="iCancel">Avbryt</button> <button class="btn primary">Lagre</button></span></div>
+  </form>
+</dialog>
+
+<dialog id="profileDlg">
+  <form class="stack" id="profileForm">
+    <h2>Profilen din</h2>
+    <label class="f">Namn<input id="pName" maxlength="60" required></label>
+    <div class="row">
+      <button type="button" class="btn" id="logoutBtn">Logg ut</button>
+      <span><button type="button" class="btn" id="pCancel">Avbryt</button> <button class="btn primary">Lagre</button></span>
+    </div>
+  </form>
+</dialog>
+
+<script src="config.js"></script>
+<script src="bible.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
