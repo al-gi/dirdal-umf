@@ -2,7 +2,8 @@
 'use strict';
 
 const cfg = window.DUMF_CONFIG || {};
-const DEMO = !(cfg.supabaseUrl && cfg.supabaseAnonKey);
+// ?demo i adressa viser eksempeldata utan å røre databasen
+const DEMO = new URLSearchParams(location.search).has('demo') || !(cfg.supabaseUrl && cfg.supabaseAnonKey);
 const BOOKS = window.BIBLE;
 const BY = Object.fromEntries(BOOKS.map(b => [b.id, b]));
 const TOTAL_CH = BOOKS.reduce((s, b) => s + b.ch, 0);
@@ -44,15 +45,27 @@ function supabaseStore() {
     async setPassword(password) { ok(await sb.auth.updateUser({ password })); },
     async signOut() { await sb.auth.signOut(); },
     async loadAll() {
-      const [m, t, p, i, mb] = await Promise.all([
+      const [m, t, p, i, mb, r, w] = await Promise.all([
         sb.from('meetings').select('*'),
         sb.from('threads').select('*').order('last_at', { ascending: false }),
         sb.from('profiles').select('id,name').order('name'),
         sb.from('group_info').select('*').eq('id', 1).maybeSingle(),
         sb.from('members').select('*').order('sort').order('name'),
+        sb.from('readings').select('*'),
+        sb.from('wiki').select('*').order('updated_at', { ascending: false }),
       ]);
-      return { meetings: ok(m), threads: ok(t), profiles: ok(p), info: ok(i), members: ok(mb) };
+      // readings/wiki finst først etter oppdatering-2.sql; manglar dei, går resten likevel
+      const soft = x => (x.error ? [] : x.data);
+      return { meetings: ok(m), threads: ok(t), profiles: ok(p), info: ok(i), members: ok(mb), readings: soft(r), wiki: soft(w) };
     },
+    async addReading(row) { ok(await sb.from('readings').insert(row)); },
+    async deleteReading(id) { ok(await sb.from('readings').delete().eq('id', id)); },
+    async saveWiki(p) {
+      const { id, ...row } = p; row.updated_at = now(); row.updated_by = (await this.session())?.user.id;
+      if (id) ok(await sb.from('wiki').update(row).eq('id', id));
+      else ok(await sb.from('wiki').insert(row));
+    },
+    async deleteWiki(id) { ok(await sb.from('wiki').delete().eq('id', id)); },
     async saveMember(m) {
       const { id, ...row } = m;
       if (id) ok(await sb.from('members').update(row).eq('id', id));
@@ -65,7 +78,7 @@ function supabaseStore() {
       else ok(await sb.from('meetings').insert(row));
     },
     async deleteMeeting(id) { ok(await sb.from('meetings').delete().eq('id', id)); },
-    async saveInfo(info) { ok(await sb.from('group_info').upsert({ id: 1, ...info, updated_at: now() })); },
+    async saveInfo(info) { ok(await sb.from('group_info').update({ ...info, updated_at: now() }).eq('id', 1)); },
     async saveName(id, name) { ok(await sb.from('profiles').update({ name }).eq('id', id)); },
     async addThread(title, body) { ok(await sb.from('threads').insert({ title, body })); },
     async deleteThread(id) { ok(await sb.from('threads').delete().eq('id', id)); },
@@ -93,6 +106,8 @@ function demoStore() {
       { id: uid(), date: iso(-14), time: '19:30', book: 'MRK', ch_from: 4, ch_to: 4, verses: '1–34', topic: 'Likningane', host: 'Eksempel A', note: '' },
       { id: uid(), date: iso(7), time: '19:30', book: 'MRK', ch_from: 5, ch_to: 5, verses: '', topic: '', host: 'Eksempel C', note: 'Eksempel: ta med kaffi.' },
     ],
+    readings: [{ id: uid(), book: 'JON', ch_from: 1, ch_to: 4, read_on: null, note: 'Eksempel: lese før sida fanst' }],
+    wiki: [{ id: uid(), title: 'Eksempel: Bibelleseplanar', body: 'Eksempelside i demomodus.\nTips: https://www.bibel.no', tags: ['tips', 'lesing'], author: 'demo2', updated_by: 'demo2', created_at: new Date().toISOString(), updated_at: new Date().toISOString() }],
     threads: [{ id: uid(), title: 'Eksempel: Kvifor talar Jesus i likningar?', body: 'Dette er eit eksempelinnlegg i demomodus.', author: 'demo2', created_at: new Date(Date.now() - 864e5 * 3).toISOString(), last_at: new Date(Date.now() - 864e5 * 3).toISOString() }],
     replies: [],
   });
@@ -105,7 +120,17 @@ function demoStore() {
     onAuth() {},
     async signIn() {}, async signUp() {}, async reset() {}, async setPassword() {},
     async signOut() { try { localStorage.removeItem(KEY); } catch {} location.reload(); },
-    async loadAll() { return JSON.parse(JSON.stringify({ meetings: db.meetings, threads: [...db.threads].sort((a, b) => b.last_at.localeCompare(a.last_at)), profiles: db.profiles, info: db.info, members: [...(db.members || [])].sort((a, b) => a.sort - b.sort) })); },
+    async loadAll() { return JSON.parse(JSON.stringify({ meetings: db.meetings, threads: [...db.threads].sort((a, b) => b.last_at.localeCompare(a.last_at)), profiles: db.profiles, info: db.info, members: [...(db.members || [])].sort((a, b) => a.sort - b.sort), readings: db.readings || [], wiki: [...(db.wiki || [])].sort((a, b) => b.updated_at.localeCompare(a.updated_at)) })); },
+    async addReading(row) { (db.readings ||= []).push({ ...row, id: uid(), created_at: ts() }); save(); },
+    async deleteReading(id) { db.readings = (db.readings || []).filter(r => r.id !== id); save(); },
+    async saveWiki(p) {
+      db.wiki ||= [];
+      const t = ts();
+      if (p.id) db.wiki = db.wiki.map(x => x.id === p.id ? { ...x, ...p, updated_at: t, updated_by: 'demo' } : x);
+      else db.wiki.push({ ...p, id: uid(), author: 'demo', updated_by: 'demo', created_at: t, updated_at: t });
+      save();
+    },
+    async deleteWiki(id) { db.wiki = (db.wiki || []).filter(x => x.id !== id); save(); },
     async saveMember(m) {
       db.members ||= [];
       if (m.id) db.members = db.members.map(x => x.id === m.id ? { ...x, ...m } : x);
@@ -138,7 +163,8 @@ const store = DEMO ? demoStore() : supabaseStore();
 /* =====================================================================
    Tilstand og hjelparar
    ===================================================================== */
-const S = { session: null, meetings: [], threads: [], profiles: [], members: [], info: null, replies: [], openThread: null, loaded: false, selBook: null };
+const S = { session: null, meetings: [], threads: [], profiles: [], members: [], readings: [], wiki: [], info: null, replies: [], openThread: null, loaded: false, selBook: null,
+  wikiQuery: '', wikiTag: null, openWiki: null };
 const meId = () => S.session && S.session.user.id;
 
 function localDate(d) { return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
@@ -180,11 +206,12 @@ function split() {
 /** Per bok: kapittel → {state: 'read'|'plan', date} */
 function readingMap() {
   const t = today(), map = {};
-  for (const m of S.meetings) {
+  const fromReadings = S.readings.map(r => ({ book: r.book, ch_from: r.ch_from, ch_to: r.ch_to, date: r.read_on || '0000-00-00', reading: true }));
+  for (const m of [...S.meetings, ...fromReadings]) {
     const b = BY[m.book];
     if (!b || !m.ch_from) continue;
     const to = Math.min(b.ch, Math.max(m.ch_from, m.ch_to || m.ch_from));
-    const state = m.date < t ? 'read' : 'plan';
+    const state = m.reading || m.date < t ? 'read' : 'plan';
     for (let c = m.ch_from; c <= to; c++) {
       const book = (map[m.book] ||= {});
       const cur = book[c];
@@ -196,7 +223,8 @@ function readingMap() {
 
 /** Neste kapittel etter den siste samlinga som har ein bibeltekst, med same tal kapittel (1 eller 2) som sist. */
 function suggestNext() {
-  const withBook = S.meetings.filter(m => BY[m.book] && m.ch_from).sort((a, b) => b.date.localeCompare(a.date));
+  const fromReadings = S.readings.map(r => ({ book: r.book, ch_from: r.ch_from, ch_to: r.ch_to, date: r.read_on || (r.created_at || '').slice(0, 10) }));
+  const withBook = [...S.meetings, ...fromReadings].filter(m => BY[m.book] && m.ch_from).sort((a, b) => b.date.localeCompare(a.date));
   const last = withBook[0];
   if (!last) return null;
   const b = BY[last.book];
@@ -238,8 +266,107 @@ function render() {
   $('#groupWhen').textContent = info.when_text || '';
   if (!signedIn) return;
   $('#profileBtn').textContent = pname(meId());
-  renderOverview(); renderReading(); renderForum(); renderMembers();
+  renderOverview(); renderReading(); renderForum(); renderMembers(); renderWiki();
 }
+
+/** Tekst med klikkbare lenkjer, utan å tolke HTML. */
+function linkify(text) {
+  const frag = document.createDocumentFragment();
+  const re = /https?:\/\/[^\s<>()]+[^\s<>().,;:!?'"»)]/g;
+  let last = 0, m;
+  while ((m = re.exec(text))) {
+    frag.append(text.slice(last, m.index), h('a', { href: m[0], target: '_blank', rel: 'noopener', text: m[0] }));
+    last = m.index + m[0].length;
+  }
+  frag.append(text.slice(last));
+  return frag;
+}
+
+/* ---------- Wiki ---------- */
+const normTags = s => [...new Set(String(s || '').split(',').map(t => t.trim().toLowerCase()).filter(Boolean))].slice(0, 20);
+function allWikiTags() {
+  const n = {};
+  for (const p of S.wiki) for (const t of p.tags || []) n[t] = (n[t] || 0) + 1;
+  return Object.entries(n).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+}
+function renderWiki() {
+  const q = S.wikiQuery.trim().toLowerCase();
+  const tags = allWikiTags();
+  $('#wikiTags').replaceChildren(...tags.map(([t, n]) => h('button', {
+    type: 'button', class: 'chip tag' + (S.wikiTag === t ? ' on' : ''), 'aria-pressed': String(S.wikiTag === t),
+    onclick: () => { S.wikiTag = S.wikiTag === t ? null : t; renderWiki(); },
+  }, '#' + t, h('b', { text: n }))));
+  const pages = S.wiki.filter(p =>
+    (!S.wikiTag || (p.tags || []).includes(S.wikiTag)) &&
+    (!q || p.title.toLowerCase().includes(q) || (p.body || '').toLowerCase().includes(q) || (p.tags || []).some(t => t.includes(q))));
+  const list = $('#wikiList');
+  if (!S.wiki.length) list.replaceChildren(h('p', { class: 'muted', text: S.loaded ? 'Ingen wikisider enno. Lag ei side for songar, oppskrifter, turplanar, gode bøker, eller det de vil hugse.' : 'Hentar …' }));
+  else if (!pages.length) list.replaceChildren(h('p', { class: 'muted', text: 'Ingen sider passar til søket.' }));
+  else list.replaceChildren(...pages.map(p => h('button', { class: 'thread', onclick: () => openWikiPage(p.id) },
+    h('h3', { text: p.title }),
+    h('div', { class: 'meta' },
+      (p.tags || []).map(t => h('span', { class: 'tagtxt', text: '#' + t })),
+      h('span', { text: '· endra ' + fmtStamp(p.updated_at) + ' av ' + pname(p.updated_by || p.author) })))));
+
+  if (!S.openWiki) return;
+  const p = S.wiki.find(x => x.id === S.openWiki);
+  if (!p) { if (S.loaded) closeWikiPage(); return; }
+  $('#wikiArticle').replaceChildren(
+    h('h2', { text: p.title }),
+    h('div', { class: 'meta' },
+      (p.tags || []).map(t => h('button', { type: 'button', class: 'chip tag', onclick: () => { S.wikiTag = t; closeWikiPage(); } }, '#' + t)),
+      h('span', { text: 'Skriven av ' + pname(p.author) + ', sist endra ' + fmtStamp(p.updated_at) + ' av ' + pname(p.updated_by || p.author) })),
+    h('div', { class: 'body' }, linkify(p.body || '')));
+}
+function openWikiPage(id) {
+  S.openWiki = id;
+  $('#wikiIndex').hidden = true; $('#wikiView').hidden = false;
+  renderWiki(); window.scrollTo(0, 0);
+}
+function closeWikiPage() {
+  S.openWiki = null;
+  $('#wikiIndex').hidden = false; $('#wikiView').hidden = true;
+  renderWiki();
+}
+$('#wikiBack').addEventListener('click', closeWikiPage);
+$('#wikiSearch').addEventListener('input', e => { S.wikiQuery = e.target.value; renderWiki(); });
+
+let editingWiki = null;
+function openWikiEditor(p) {
+  editingWiki = p;
+  $('#wikiTitle').textContent = p ? 'Endre wikiside' : 'Ny wikiside';
+  $('#wTitle').value = p ? p.title : '';
+  $('#wTags').value = p ? (p.tags || []).join(', ') : (S.wikiTag || '');
+  $('#wBody').value = p ? (p.body || '') : '';
+  $('#wTagSuggest').replaceChildren(...allWikiTags().map(([t]) => h('button', {
+    type: 'button', class: 'chip tag',
+    onclick: () => { $('#wTags').value = normTags($('#wTags').value + ',' + t).join(', '); },
+  }, '#' + t)));
+  const del = $('#wDelete'); del.hidden = !p; del.classList.remove('armed'); del.textContent = 'Slett';
+  $('#wikiDlg').showModal();
+}
+$('#newWiki').addEventListener('click', () => openWikiEditor(null));
+$('#wikiEdit').addEventListener('click', () => openWikiEditor(S.wiki.find(x => x.id === S.openWiki)));
+$('#wCancel').addEventListener('click', () => $('#wikiDlg').close());
+$('#wDelete').addEventListener('click', async e => {
+  const b = e.currentTarget;
+  if (!b.classList.contains('armed')) { b.classList.add('armed'); b.textContent = 'Trykk igjen for å slette'; return; }
+  if (await run(store.deleteWiki(editingWiki.id))) { $('#wikiDlg').close(); closeWikiPage(); reload(); }
+});
+$('#wikiForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const row = { title: $('#wTitle').value.trim(), tags: normTags($('#wTags').value), body: $('#wBody').value };
+  if (editingWiki) row.id = editingWiki.id;
+  if (await run(store.saveWiki(row))) { $('#wikiDlg').close(); reload(); }
+});
+
+/* ---------- Anna info ---------- */
+$('#editNotice').addEventListener('click', () => { $('#nText').value = (S.info && S.info.notice) || ''; $('#noticeDlg').showModal(); });
+$('#nCancel').addEventListener('click', () => $('#noticeDlg').close());
+$('#noticeForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  if (await run(store.saveInfo({ notice: $('#nText').value.trim() || null }))) { $('#noticeDlg').close(); reload(); }
+});
 
 function renderMembers() {
   $('#memberCount').textContent = `Medlemer (${S.members.length})`;
@@ -257,7 +384,8 @@ function renderMembers() {
       h('div', { class: 'contact' },
         m.address ? h('a', { href: mapsUrl(m), target: '_blank', rel: 'noopener', text: fullAddress(m) + ' ↗' }) : null,
         m.phone ? h('a', { href: 'tel:' + m.phone.replace(/\s/g, ''), text: m.phone }) : null,
-        m.email ? h('a', { href: 'mailto:' + m.email, text: m.email }) : null)),
+        m.email ? h('a', { href: 'mailto:' + m.email, text: m.email }) : null),
+      m.bio ? h('p', { class: 'bio', text: m.bio }) : null),
     h('button', { class: 'btn link', onclick: () => openMember(m) }, 'Endre'))));
 }
 
@@ -307,6 +435,9 @@ function renderOverview() {
     stat(hosts, 'ulike vertar'));
 
   const info = S.info || {};
+  $('#noticeBox').replaceChildren(info.notice
+    ? h('div', { class: 'notice prose' }, linkify(info.notice))
+    : h('p', { class: 'muted', text: 'Her kan de leggje beskjedar og praktisk info, til dømes om turar, fest eller dugnad.' }));
   $('#infoBox').replaceChildren(info.about
     ? h('p', { class: 'prose', text: info.about })
     : h('p', { class: 'muted', text: 'Skriv kort om gruppa, så nye medlemer finn fram.' }));
@@ -368,21 +499,57 @@ function renderReading() {
   detail.hidden = !sel;
   if (sel) {
     const s = stats(sel.id);
+    const bookReadings = S.readings.filter(r => r.book === sel.id).sort((a, b) => a.ch_from - b.ch_from);
     const cells = [];
     for (let c = 1; c <= sel.ch; c++) {
       const st = s.chs[c];
-      cells.push(h('span', {
-        class: 'cell' + (st ? ' ' + st.state : ''),
-        title: `${sel.name} ${c}` + (st ? (st.state === 'read' ? ' – lese ' : ' – planlagt ') + fmtShort(st.date) : ''),
-        text: c,
+      const single = bookReadings.find(r => r.ch_from === c && r.ch_to === c);
+      const when = st && st.date && !st.date.startsWith('0000') ? ' ' + fmtShort(st.date) : '';
+      let title = `${sel.name} ${c}`;
+      if (single) title += ' – registrert som lese. Trykk for å fjerne.';
+      else if (st) title += (st.state === 'read' ? ' – lese' : ' – planlagt') + when;
+      else title += ' – trykk for å merkje som lese';
+      cells.push(h('button', {
+        type: 'button', class: 'cell' + (st ? ' ' + st.state : ''), title, text: c,
+        onclick: () => {
+          if (single) run(store.deleteReading(single.id)).then(reload);
+          else if (!st || st.state === 'plan') run(store.addReading({ book: sel.id, ch_from: c, ch_to: c, read_on: null })).then(reload);
+        },
       }));
     }
     const meetings = S.meetings.filter(m => m.book === sel.id).sort((a, b) => a.date.localeCompare(b.date));
-    detail.replaceChildren(
+    const rangeRows = bookReadings.filter(r => r.ch_from !== r.ch_to);
+
+    // Registrer fleire kapittel på ein gong
+    const rf = h('select', { 'aria-label': 'Frå kapittel' }), rt = h('select', { 'aria-label': 'Til kapittel' });
+    const fill = (sel2, from, val) => { sel2.replaceChildren(...Array.from({ length: sel.ch - from + 1 }, (_, i) => h('option', { value: from + i, text: from + i }))); sel2.value = String(Math.max(val, from)); };
+    const firstUnread = Array.from({ length: sel.ch }, (_, i) => i + 1).find(c => !s.chs[c] || s.chs[c].state !== 'read') || 1;
+    fill(rf, 1, firstUnread); fill(rt, firstUnread, firstUnread);
+    rf.addEventListener('change', () => fill(rt, +rf.value, +rt.value));
+    const rd = h('input', { type: 'date', 'aria-label': 'Dato (valfritt)' });
+    const register = h('form', { class: 'regform', onsubmit: e => {
+      e.preventDefault();
+      run(store.addReading({ book: sel.id, ch_from: +rf.value, ch_to: +rt.value, read_on: rd.value || null })).then(reload);
+    } },
+      h('span', { class: 'label', text: 'Registrer det de har lese' }),
+      h('div', { class: 'regrow' },
+        h('label', { class: 'f' }, 'Frå', rf), h('label', { class: 'f' }, 'Til', rt),
+        h('label', { class: 'f' }, 'Dato (valfritt)', rd),
+        h('button', { class: 'btn primary' }, 'Lagre')),
+      s.read < sel.ch ? h('button', { type: 'button', class: 'btn link', onclick: () => run(store.addReading({ book: sel.id, ch_from: 1, ch_to: sel.ch, read_on: null })).then(reload) }, `Merk heile ${sel.name} som lese`) : null);
+
+    detail.replaceChildren(...[
       h('div', { class: 'row' }, h('h2', { text: sel.name }), h('span', { class: 'muted', text: `${s.read} av ${sel.ch} kapittel lese` })),
       h('div', { class: 'cells' }, cells),
-      h('span', { class: 'legend' }, h('i', { class: 'cell read' }), ' lese ', h('i', { class: 'cell plan' }), ' planlagt'),
-      meetings.length ? h('div', { class: 'list' }, meetings.map(meetingRow)) : h('p', { class: 'muted', text: 'Ingen samlingar i denne boka enno.' }));
+      h('span', { class: 'hint', text: 'Trykk på eit kapittel for å merkje det som lese, eller trykk igjen for å fjerne merket.' }),
+      register,
+      rangeRows.length ? h('div', { class: 'block' }, h('span', { class: 'label', text: 'Registrert utan samling' }),
+        h('div', { class: 'list' }, rangeRows.map(r => h('div', { class: 'item' },
+          h('span', { class: 'd', text: r.read_on ? fmtShort(r.read_on) : 'Utan dato' }),
+          h('div', { class: 'main' }, h('span', { class: 'verse', text: `${sel.abbr} ${r.ch_from}–${r.ch_to}` }), r.note ? h('span', { class: 'note', text: r.note }) : null),
+          delBtn(() => run(store.deleteReading(r.id)).then(reload)))))) : null,
+      meetings.length ? h('div', { class: 'block' }, h('span', { class: 'label', text: 'Samlingar' }), h('div', { class: 'list' }, meetings.map(meetingRow))) : null,
+    ].filter(Boolean));
   }
 
   const { past } = split();
@@ -450,7 +617,7 @@ async function run(p) {
 async function reload() {
   try {
     const d = await store.loadAll();
-    Object.assign(S, { meetings: d.meetings || [], threads: d.threads || [], profiles: d.profiles || [], members: d.members || [], info: d.info, loaded: true });
+    Object.assign(S, { meetings: d.meetings || [], threads: d.threads || [], profiles: d.profiles || [], members: d.members || [], readings: d.readings || [], wiki: d.wiki || [], info: d.info, loaded: true });
     setStatus('');
   } catch (err) {
     console.error(err);
@@ -472,7 +639,7 @@ function scheduleReload(table) {
 /* =====================================================================
    Faner
    ===================================================================== */
-const TABS = ['oversikt', 'lesing', 'forum', 'medlemer'];
+const TABS = ['oversikt', 'lesing', 'wiki', 'forum', 'medlemer'];
 function showTab(name) {
   document.querySelectorAll('#app nav.tabs button').forEach(b => b.setAttribute('aria-selected', String(b.dataset.tab === name)));
   TABS.forEach(n => $('#pane-' + n).hidden = n !== name);
@@ -543,6 +710,7 @@ function openMember(m) {
   $('#mbPlace').value = m ? (m.place || '') : 'Dirdal';
   $('#mbPhone').value = m ? (m.phone || '') : '';
   $('#mbEmail').value = m ? (m.email || '') : '';
+  $('#mbBio').value = m ? (m.bio || '') : '';
   const del = $('#mbDelete'); del.hidden = !m; del.classList.remove('armed'); del.textContent = 'Slett';
   $('#memberDlg').showModal();
 }
@@ -556,7 +724,7 @@ $('#mbDelete').addEventListener('click', async e => {
 $('#memberForm').addEventListener('submit', async e => {
   e.preventDefault();
   const v = id => $(id).value.trim() || null;
-  const row = { name: v('#mbName'), role: v('#mbRole'), address: v('#mbAddress'), postcode: v('#mbPostcode'), place: v('#mbPlace'), phone: v('#mbPhone'), email: v('#mbEmail') };
+  const row = { name: v('#mbName'), role: v('#mbRole'), address: v('#mbAddress'), postcode: v('#mbPostcode'), place: v('#mbPlace'), phone: v('#mbPhone'), email: v('#mbEmail'), bio: v('#mbBio') };
   if (editingMember) row.id = editingMember.id;
   else row.sort = S.members.reduce((mx, m) => Math.max(mx, m.sort || 0), 0) + 1;
   if (await run(store.saveMember(row))) { $('#memberDlg').close(); reload(); }

@@ -65,6 +65,7 @@
     <nav class="tabs" role="tablist">
       <button role="tab" data-tab="oversikt" aria-selected="true">Oversikt</button>
       <button role="tab" data-tab="lesing" aria-selected="false">Lesing</button>
+      <button role="tab" data-tab="wiki" aria-selected="false">Wiki</button>
       <button role="tab" data-tab="forum" aria-selected="false">Forum</button>
       <button role="tab" data-tab="medlemer" aria-selected="false">Medlemer</button>
     </nav>
@@ -81,6 +82,10 @@
       <div class="block">
         <span class="label">Så langt</span>
         <div class="stats" id="stats"></div>
+      </div>
+      <div class="block">
+        <div class="row"><span class="label">Anna info</span><button class="btn link" id="editNotice">Endre</button></div>
+        <div id="noticeBox"></div>
       </div>
       <div class="block">
         <div class="row"><span class="label">Om gruppa</span><button class="btn link" id="editInfo">Endre</button></div>
@@ -134,6 +139,19 @@
           <label class="f">Svar<textarea id="replyBody" required maxlength="10000" placeholder="Skriv eit svar"></textarea></label>
           <div class="row"><span></span><button class="btn primary">Send svar</button></div>
         </form>
+      </div>
+    </section>
+
+    <section class="pane" id="pane-wiki" hidden>
+      <div id="wikiIndex" class="block">
+        <div class="row"><span class="label">Wiki</span><button class="btn primary" id="newWiki">Ny side</button></div>
+        <input type="search" id="wikiSearch" placeholder="Søk i tittel, tekst og taggar" autocomplete="off">
+        <div class="chips" id="wikiTags"></div>
+        <div id="wikiList"></div>
+      </div>
+      <div id="wikiView" class="block" hidden>
+        <div class="row"><button class="btn link" id="wikiBack">← Alle sider</button><button class="btn" id="wikiEdit">Endre</button></div>
+        <article id="wikiArticle" class="post op"></article>
       </div>
     </section>
 
@@ -192,6 +210,20 @@
   </form>
 </dialog>
 
+<dialog id="wikiDlg">
+  <form class="stack" id="wikiForm">
+    <h2 id="wikiTitle">Ny wikiside</h2>
+    <label class="f">Tittel<input id="wTitle" maxlength="200" required></label>
+    <label class="f">Taggar<input id="wTags" maxlength="300" placeholder="t.d. songar, tur, lesing" autocomplete="off"><span class="hint">Skil taggane med komma. Trykk på ein tagg under for å leggje han til.</span></label>
+    <div class="chips" id="wTagSuggest"></div>
+    <label class="f">Innhald<textarea id="wBody" rows="12" maxlength="50000" placeholder="Skriv fritt. Lenkjer blir klikkbare."></textarea></label>
+    <div class="row">
+      <button type="button" class="btn danger" id="wDelete" hidden>Slett</button>
+      <span><button type="button" class="btn" id="wCancel">Avbryt</button> <button class="btn primary">Lagre</button></span>
+    </div>
+  </form>
+</dialog>
+
 <dialog id="memberDlg">
   <form class="stack" id="memberForm">
     <h2 id="memberTitle">Nytt medlem</h2>
@@ -206,10 +238,19 @@
       <label class="f">Mobil<input id="mbPhone" maxlength="20" inputmode="tel"></label>
       <label class="f">E-post<input id="mbEmail" type="email" maxlength="120"></label>
     </div>
+    <label class="f">Om medlemet<textarea id="mbBio" maxlength="3000" placeholder="Eit lite stykke om personen"></textarea></label>
     <div class="row">
       <button type="button" class="btn danger" id="mbDelete" hidden>Slett</button>
       <span><button type="button" class="btn" id="mbCancel">Avbryt</button> <button class="btn primary">Lagre</button></span>
     </div>
+  </form>
+</dialog>
+
+<dialog id="noticeDlg">
+  <form class="stack" id="noticeForm">
+    <h2>Anna info</h2>
+    <label class="f">Oppslag, beskjedar, praktisk info<textarea id="nText" rows="8" maxlength="4000" placeholder="Til dømes: Sommarfest 20. juni. Ta med grillmat!"></textarea></label>
+    <div class="row"><span></span><span><button type="button" class="btn" id="nCancel">Avbryt</button> <button class="btn primary">Lagre</button></span></div>
   </form>
 </dialog>
 

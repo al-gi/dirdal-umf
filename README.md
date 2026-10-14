@@ -19,7 +19,7 @@ og gå til http://localhost:8000. Så lenge `config.js` er tom, køyrer sida i *
 
 ### 1. Supabase (database og innlogging)
 1. Opprett ein gratis konto på https://supabase.com og lag eit nytt prosjekt (region: Stockholm eller Frankfurt).
-2. Opne **SQL Editor**, lim inn heile `schema.sql`, byt ut `'byt-meg'` med gruppekoden de vil bruke, og trykk **Run**.
+2. Opne **SQL Editor**, lim inn heile `schema.sql`, byt ut `'byt-meg'` med gruppekoden de vil bruke, og trykk **Run**. Køyr deretter `oppdatering-2.sql` på same måte (lesing utan samling, wiki, «Anna info», medlemstekst).
 3. Legg inn medlemslista: køyr den private fila `medlemmar.sql` (ligg utanfor repoet, i `dirdal-umf-privat`) i SQL Editor på same måte. Adresser og telefonnummer skal **aldri** ligge i dette repoet, sidan det er offentleg; i databasen er dei berre synlege for innlogga medlemer.
 4. Gå til **Project Settings → API** og kopier *Project URL* og *anon public*-nøkkelen inn i `config.js`.
 5. Gå til **Authentication → URL Configuration**:

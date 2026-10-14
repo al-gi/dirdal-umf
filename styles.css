@@ -97,6 +97,27 @@ a.btn{text-decoration:none}
 .member .contact a:hover{text-decoration:underline}
 .member .contact span{font-variant-numeric:tabular-nums}
 
+.member .bio{margin-top:.5rem;max-width:65ch;white-space:pre-wrap;font-family:var(--display);font-size:.98rem;line-height:1.6}
+
+/* Wiki */
+.chip.tag{cursor:pointer;font:inherit;font-size:.85rem;color:var(--accent)}
+.chip.tag b{color:var(--muted);font-weight:500}
+.chip.on{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.chip.on b{color:var(--accent-ink)}
+button.chip{cursor:pointer;font:inherit;color:inherit}
+.tagtxt{color:var(--accent)}
+#wikiArticle .body{font-family:var(--display);font-size:1.02rem;line-height:1.65;max-width:65ch}
+.body a,.prose a{color:var(--accent)}
+input[type="search"]{border-radius:999px;padding-inline:1rem}
+
+/* Registrer lesing */
+button.cell{cursor:pointer;font:inherit;font-size:.65rem;padding:0}
+button.cell:hover{border-color:var(--accent)}
+.regform{display:flex;flex-direction:column;gap:.5rem;border-top:1px solid var(--line);padding-top:.75rem}
+.regrow{display:grid;grid-template-columns:5rem 5rem minmax(9rem,12rem) auto;gap:.6rem;align-items:end;justify-content:start}
+.regform > .btn.link{align-self:flex-start}
+@media (max-width:520px){.regrow{grid-template-columns:1fr 1fr}.regrow .btn{grid-column:1 / -1}}
+
 /* Bøkene i Bibelen */
 .bookgrid{display:flex;flex-direction:column;gap:.6rem}
 .bookgrid h3{font-family:var(--ui);font-size:.72rem;text-transform:uppercase;letter-spacing:.09em;color:var(--muted);font-weight:600;margin-top:.6rem}
