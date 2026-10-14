@@ -56,7 +56,7 @@ function supabaseStore() {
       ]);
       // readings/wiki finst først etter oppdatering-2.sql; manglar dei, går resten likevel
       const soft = x => (x.error ? [] : x.data);
-      return { meetings: ok(m), threads: ok(t), profiles: ok(p), info: ok(i), members: ok(mb), readings: soft(r), wiki: soft(w) };
+      return { meetings: ok(m), threads: ok(t), profiles: ok(p), info: ok(i), members: ok(mb), readings: soft(r), wiki: soft(w), needsUpdate: !!(r.error || w.error) };
     },
     async addReading(row) { ok(await sb.from('readings').insert(row)); },
     async deleteReading(id) { ok(await sb.from('readings').delete().eq('id', id)); },
@@ -618,7 +618,7 @@ async function reload() {
   try {
     const d = await store.loadAll();
     Object.assign(S, { meetings: d.meetings || [], threads: d.threads || [], profiles: d.profiles || [], members: d.members || [], readings: d.readings || [], wiki: d.wiki || [], info: d.info, loaded: true });
-    setStatus('');
+    setStatus(d.needsUpdate ? 'Databasen manglar ei oppdatering, så Wiki og registrering av lesing kan ikkje lagre noko enno. Den som styrer Supabase må køyre oppdatering-2.sql i SQL Editor.' : '');
   } catch (err) {
     console.error(err);
     setStatus('Fekk ikkje henta data. Last sida på nytt.');
