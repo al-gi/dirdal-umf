@@ -66,6 +66,7 @@
       <button role="tab" data-tab="oversikt" aria-selected="true">Oversikt</button>
       <button role="tab" data-tab="lesing" aria-selected="false">Lesing</button>
       <button role="tab" data-tab="forum" aria-selected="false">Forum</button>
+      <button role="tab" data-tab="medlemer" aria-selected="false">Medlemer</button>
     </nav>
 
     <section class="pane" id="pane-oversikt">
@@ -98,11 +99,12 @@
       </div>
       <div class="block">
         <div class="row">
-          <span class="label">Lesekart</span>
-          <span class="legend"><i class="cell read"></i> lese <i class="cell plan"></i> planlagt</span>
+          <span class="label">Bøkene i Bibelen</span>
+          <span class="legend"><i class="tile-dot done"></i> ferdig <i class="tile-dot started"></i> byrja på <i class="tile-dot planned"></i> planlagt</span>
         </div>
-        <div id="bookMap" class="bookmap"></div>
-        <div><button class="btn link" id="toggleBooks">Vis alle bøkene</button></div>
+        <div id="bookGrid" class="bookgrid"></div>
+        <p class="hint">Trykk på ei bok for å sjå kapitla.</p>
+        <div id="bookDetail" class="bookdetail" hidden></div>
       </div>
       <div class="block">
         <span class="label">Kven vi har vore hos</span>
@@ -134,6 +136,17 @@
         </form>
       </div>
     </section>
+
+    <section class="pane" id="pane-medlemer" hidden>
+      <div class="block">
+        <div class="row">
+          <span class="label" id="memberCount">Medlemer</span>
+          <span class="btns"><a class="btn" id="mapAll" target="_blank" rel="noopener" hidden>Vis alle i Google Maps</a><button class="btn" id="addMember">Legg til medlem</button></span>
+        </div>
+        <div class="list" id="memberList"></div>
+        <p class="hint">Medlemslista er berre synleg for dei som er logga inn.</p>
+      </div>
+    </section>
   </div>
 </div>
 
@@ -150,6 +163,7 @@
       <label class="f">Bok
         <select id="mBook"><option value="">Ingen bibeltekst</option></select>
       </label>
+      <div class="row"><span class="hint">Kor mykje:</span><span class="btns"><button type="button" class="btn small" data-span="1">1 kapittel</button><button type="button" class="btn small" data-span="2">2 kapittel</button></span></div>
       <div class="grid3">
         <label class="f">Frå kapittel<select id="mFrom"></select></label>
         <label class="f">Til kapittel<select id="mTo"></select></label>
@@ -175,6 +189,27 @@
     <label class="f">Fast tidspunkt<input id="iWhen" maxlength="120" placeholder="Til dømes: Annakvar torsdag kl. 19.30"></label>
     <label class="f">Om oss<textarea id="iAbout" maxlength="4000" placeholder="Kva gruppa er, korleis ei samling går føre seg …"></textarea></label>
     <div class="row"><span></span><span><button type="button" class="btn" id="iCancel">Avbryt</button> <button class="btn primary">Lagre</button></span></div>
+  </form>
+</dialog>
+
+<dialog id="memberDlg">
+  <form class="stack" id="memberForm">
+    <h2 id="memberTitle">Nytt medlem</h2>
+    <label class="f">Namn<input id="mbName" maxlength="80" required></label>
+    <label class="f">Rolle<input id="mbRole" maxlength="120" placeholder="Valfritt"></label>
+    <label class="f">Adresse<input id="mbAddress" maxlength="120" autocomplete="off"></label>
+    <div class="grid2">
+      <label class="f">Postnummer<input id="mbPostcode" maxlength="4" inputmode="numeric" placeholder="4335"></label>
+      <label class="f">Stad<input id="mbPlace" maxlength="60" placeholder="Dirdal"></label>
+    </div>
+    <div class="grid2">
+      <label class="f">Mobil<input id="mbPhone" maxlength="20" inputmode="tel"></label>
+      <label class="f">E-post<input id="mbEmail" type="email" maxlength="120"></label>
+    </div>
+    <div class="row">
+      <button type="button" class="btn danger" id="mbDelete" hidden>Slett</button>
+      <span><button type="button" class="btn" id="mbCancel">Avbryt</button> <button class="btn primary">Lagre</button></span>
+    </div>
   </form>
 </dialog>
 

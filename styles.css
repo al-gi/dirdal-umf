@@ -82,6 +82,43 @@ nav.tabs.small{position:static;margin-block:0 1rem}
 @media (max-width:440px){.stats{grid-template-columns:1fr 1fr}}
 .prose{white-space:pre-wrap;max-width:65ch}
 
+.btns{display:inline-flex;flex-wrap:wrap;gap:.5rem}
+.btn.small{padding:.3rem .7rem;font-size:.82rem}
+.btn.on{border-color:var(--accent);color:var(--accent);background:var(--soft)}
+a.btn{text-decoration:none}
+
+/* Medlemer */
+.member{display:grid;grid-template-columns:1fr auto;gap:.15rem 1rem;padding:.9rem 0;border-bottom:1px solid var(--line);align-items:start}
+.member .who{display:flex;flex-direction:column;gap:.1rem;min-width:0}
+.member .who b{font-family:var(--display);font-weight:600;font-size:1.1rem}
+.member .role{color:var(--muted);font-size:.85rem}
+.member .contact{display:flex;flex-wrap:wrap;gap:.25rem 1.1rem;font-size:.92rem;margin-top:.25rem}
+.member .contact a{color:var(--accent);text-decoration:none;overflow-wrap:anywhere}
+.member .contact a:hover{text-decoration:underline}
+.member .contact span{font-variant-numeric:tabular-nums}
+
+/* Bøkene i Bibelen */
+.bookgrid{display:flex;flex-direction:column;gap:.6rem}
+.bookgrid h3{font-family:var(--ui);font-size:.72rem;text-transform:uppercase;letter-spacing:.09em;color:var(--muted);font-weight:600;margin-top:.6rem}
+.tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(7.2rem,1fr));gap:.4rem}
+.tile{position:relative;display:flex;flex-direction:column;gap:.15rem;text-align:left;border:1px solid var(--line);background:transparent;color:var(--muted);border-radius:8px;padding:.45rem .55rem .55rem;overflow:hidden;min-width:0}
+.tile .tn{font-size:.85rem;font-weight:500;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tile .tc{font-size:.72rem;font-variant-numeric:tabular-nums}
+.tile .tb{position:absolute;left:0;bottom:0;height:3px;background:var(--accent)}
+.tile.started{border-color:var(--accent);color:var(--ink);background:var(--surface)}
+.tile.planned{border-color:var(--verse);border-style:dashed;color:var(--ink)}
+.tile.done{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.tile.done .tb{display:none}
+@media (max-width:520px){.tiles{grid-template-columns:repeat(3,minmax(0,1fr))}.tile .tn{font-size:.78rem}}
+.tile[aria-pressed="true"]{outline:2px solid var(--verse);outline-offset:1px}
+.tile:hover{border-color:var(--accent)}
+.tile-dot{display:inline-block;width:11px;height:11px;border-radius:3px;border:1.5px solid var(--line)}
+.tile-dot.done{background:var(--accent);border-color:var(--accent)}
+.tile-dot.started{border-color:var(--accent);background:linear-gradient(to top,var(--accent) 35%,transparent 35%)}
+.tile-dot.planned{border-color:var(--verse);border-style:dashed}
+.bookdetail{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:1.1rem 1.25rem;display:flex;flex-direction:column;gap:.75rem}
+.bookdetail h2{font-size:1.3rem}
+
 /* Lesekart */
 .bar{height:8px;border-radius:99px;background:var(--empty);overflow:hidden}
 .bar span{display:block;height:100%;background:var(--accent);width:0;transition:width .4s}

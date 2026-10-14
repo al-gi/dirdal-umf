@@ -93,7 +93,27 @@ drop trigger if exists on_reply_created on public.replies;
 create trigger on_reply_created after insert on public.replies
   for each row execute function private.bump_thread();
 
+-- ---------- Medlemsliste (adresser og kontaktinfo, berre for innlogga) ----------
+create table if not exists public.members (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  role text,
+  address text,
+  postcode text,
+  place text,
+  phone text,
+  email text,
+  sort int not null default 0,
+  created_at timestamptz not null default now()
+);
+
 -- ---------- Tilgang: berre innlogga medlemer ----------
+alter table public.members    enable row level security;
+create policy "medlemer les medlemsliste" on public.members for select to authenticated using (true);
+create policy "medlemer legg til medlem"  on public.members for insert to authenticated with check (true);
+create policy "medlemer endrar medlem"    on public.members for update to authenticated using (true) with check (true);
+create policy "medlemer slettar medlem"   on public.members for delete to authenticated using (true);
+
 alter table public.profiles   enable row level security;
 alter table public.group_info enable row level security;
 alter table public.meetings   enable row level security;
@@ -122,4 +142,4 @@ create policy "slett eige svar"       on public.replies for delete to authentica
 
 -- ---------- Sanntid: sida oppdaterer seg når andre skriv ----------
 alter publication supabase_realtime add table
-  public.meetings, public.threads, public.replies, public.group_info, public.profiles;
+  public.meetings, public.threads, public.replies, public.group_info, public.profiles, public.members;

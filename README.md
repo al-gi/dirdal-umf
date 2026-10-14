@@ -1,6 +1,6 @@
 # Dirdal Unge Mannsforening – bibelgruppe
 
-Nettsida til bibelgruppa: neste samling, kva vi les, lesekart over Bibelen, kven vi har vore hos, og eit forum.
+Nettsida til bibelgruppa: neste samling, kva vi les, oversikt over alle bøkene i Bibelen med det vi har lese merka av, kven vi har vore hos, eit forum, og medlemsliste med adresser som opnar i Google Maps.
 Kvar person opprettar sin eigen brukar med e-post og passord. Det krev ein **gruppekode**, så ikkje kven som helst kan registrere seg.
 
 Sida er reine filer (HTML/CSS/JS) som ligg gratis på GitHub Pages. Data og innlogging ligg i Supabase (gratisplan).
@@ -20,11 +20,12 @@ og gå til http://localhost:8000. Så lenge `config.js` er tom, køyrer sida i *
 ### 1. Supabase (database og innlogging)
 1. Opprett ein gratis konto på https://supabase.com og lag eit nytt prosjekt (region: Stockholm eller Frankfurt).
 2. Opne **SQL Editor**, lim inn heile `schema.sql`, byt ut `'byt-meg'` med gruppekoden de vil bruke, og trykk **Run**.
-3. Gå til **Project Settings → API** og kopier *Project URL* og *anon public*-nøkkelen inn i `config.js`.
-4. Gå til **Authentication → URL Configuration**:
+3. Legg inn medlemslista: køyr den private fila `medlemmar.sql` (ligg utanfor repoet, i `dirdal-umf-privat`) i SQL Editor på same måte. Adresser og telefonnummer skal **aldri** ligge i dette repoet, sidan det er offentleg; i databasen er dei berre synlege for innlogga medlemer.
+4. Gå til **Project Settings → API** og kopier *Project URL* og *anon public*-nøkkelen inn i `config.js`.
+5. Gå til **Authentication → URL Configuration**:
    - *Site URL*: adressa til sida, t.d. `https://BRUKARNAMN.github.io/dirdal-umf/`
    - Legg same adresse til under *Redirect URLs*.
-5. (Valfritt) Under **Authentication → Providers → Email** kan du slå av «Confirm email» om de ikkje vil stadfeste e-posten.
+6. (Valfritt) Under **Authentication → Providers → Email** kan du slå av «Confirm email» om de ikkje vil stadfeste e-posten.
 
 Anon-nøkkelen er laga for å liggje offentleg i nettsida. Tilgangen er styrt av reglane i `schema.sql`: berre innlogga medlemer kan lese og skrive, og kvar person kan berre slette sine eigne foruminnlegg.
 

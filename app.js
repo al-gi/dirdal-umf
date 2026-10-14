@@ -44,14 +44,21 @@ function supabaseStore() {
     async setPassword(password) { ok(await sb.auth.updateUser({ password })); },
     async signOut() { await sb.auth.signOut(); },
     async loadAll() {
-      const [m, t, p, i] = await Promise.all([
+      const [m, t, p, i, mb] = await Promise.all([
         sb.from('meetings').select('*'),
         sb.from('threads').select('*').order('last_at', { ascending: false }),
         sb.from('profiles').select('id,name').order('name'),
         sb.from('group_info').select('*').eq('id', 1).maybeSingle(),
+        sb.from('members').select('*').order('sort').order('name'),
       ]);
-      return { meetings: ok(m), threads: ok(t), profiles: ok(p), info: ok(i) };
+      return { meetings: ok(m), threads: ok(t), profiles: ok(p), info: ok(i), members: ok(mb) };
     },
+    async saveMember(m) {
+      const { id, ...row } = m;
+      if (id) ok(await sb.from('members').update(row).eq('id', id));
+      else ok(await sb.from('members').insert(row));
+    },
+    async deleteMember(id) { ok(await sb.from('members').delete().eq('id', id)); },
     async saveMeeting(m) {
       const { id, ...row } = m; row.updated_at = now();
       if (id) ok(await sb.from('meetings').update(row).eq('id', id));
@@ -76,6 +83,10 @@ function demoStore() {
   const seed = () => ({
     info: { name: DEFAULT_NAME, when_text: 'Annakvar torsdag kl. 19.30 (eksempel)', about: 'Dette er eksempeltekst i demomodus. Her skriv de kort om gruppa.' },
     profiles: [{ id: 'demo', name: 'Deg (demo)' }, { id: 'demo2', name: 'Eksempel-medlem' }],
+    members: [
+      { id: uid(), sort: 1, name: 'Eksempel A', role: 'Formann (eksempel)', address: 'Dirdalsvegen 1', postcode: '4335', place: 'Dirdal', phone: '000 00 000', email: null },
+      { id: uid(), sort: 2, name: 'Eksempel B', role: 'Nest formann (eksempel)', address: 'Kyrkjevegen 2', postcode: '4335', place: 'Dirdal', phone: null, email: 'eksempel@example.com' },
+    ],
     meetings: [
       { id: uid(), date: iso(-42), time: '19:30', book: 'MRK', ch_from: 1, ch_to: 1, verses: '', topic: '', host: 'Eksempel A', note: '' },
       { id: uid(), date: iso(-28), time: '19:30', book: 'MRK', ch_from: 2, ch_to: 3, verses: '', topic: '', host: 'Eksempel B', note: 'Eksempelnotat.' },
@@ -94,7 +105,14 @@ function demoStore() {
     onAuth() {},
     async signIn() {}, async signUp() {}, async reset() {}, async setPassword() {},
     async signOut() { try { localStorage.removeItem(KEY); } catch {} location.reload(); },
-    async loadAll() { return JSON.parse(JSON.stringify({ meetings: db.meetings, threads: [...db.threads].sort((a, b) => b.last_at.localeCompare(a.last_at)), profiles: db.profiles, info: db.info })); },
+    async loadAll() { return JSON.parse(JSON.stringify({ meetings: db.meetings, threads: [...db.threads].sort((a, b) => b.last_at.localeCompare(a.last_at)), profiles: db.profiles, info: db.info, members: [...(db.members || [])].sort((a, b) => a.sort - b.sort) })); },
+    async saveMember(m) {
+      db.members ||= [];
+      if (m.id) db.members = db.members.map(x => x.id === m.id ? { ...x, ...m } : x);
+      else db.members.push({ ...m, id: uid() });
+      save();
+    },
+    async deleteMember(id) { db.members = (db.members || []).filter(x => x.id !== id); save(); },
     async saveMeeting(m) {
       if (m.id) db.meetings = db.meetings.map(x => x.id === m.id ? { ...x, ...m } : x);
       else db.meetings.push({ ...m, id: uid() });
@@ -120,7 +138,7 @@ const store = DEMO ? demoStore() : supabaseStore();
 /* =====================================================================
    Tilstand og hjelparar
    ===================================================================== */
-const S = { session: null, meetings: [], threads: [], profiles: [], info: null, replies: [], openThread: null, loaded: false, allBooks: false };
+const S = { session: null, meetings: [], threads: [], profiles: [], members: [], info: null, replies: [], openThread: null, loaded: false, selBook: null };
 const meId = () => S.session && S.session.user.id;
 
 function localDate(d) { return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
@@ -176,17 +194,30 @@ function readingMap() {
   return map;
 }
 
-/** Neste kapittel etter den siste samlinga som har ein bibeltekst. */
+/** Neste kapittel etter den siste samlinga som har ein bibeltekst, med same tal kapittel (1 eller 2) som sist. */
 function suggestNext() {
   const withBook = S.meetings.filter(m => BY[m.book] && m.ch_from).sort((a, b) => b.date.localeCompare(a.date));
   const last = withBook[0];
   if (!last) return null;
   const b = BY[last.book];
   const end = Math.max(last.ch_from, last.ch_to || last.ch_from);
-  if (end < b.ch) return { book: b.id, ch: end + 1, after: last };
+  const span = Math.min(2, end - last.ch_from + 1);
+  if (end < b.ch) return { book: b.id, ch: end + 1, span, after: last };
   const idx = BOOKS.indexOf(b);
   const nb = BOOKS[(idx + 1) % BOOKS.length];
-  return { book: nb.id, ch: 1, after: last };
+  return { book: nb.id, ch: 1, span, after: last };
+}
+
+/* Google Maps */
+const fullAddress = m => [m.address, [m.postcode, m.place].filter(Boolean).join(' ')].filter(Boolean).join(', ');
+const mapsUrl = m => 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(fullAddress(m) + ', Norge');
+function mapsAllUrl(list) {
+  const stops = list.filter(m => m.address).map(m => fullAddress(m) + ', Norge');
+  if (stops.length < 2) return stops.length ? mapsUrl(list.find(m => m.address)) : null;
+  const pts = stops.slice(0, 10);
+  const q = new URLSearchParams({ api: '1', origin: pts[0], destination: pts[pts.length - 1] });
+  if (pts.length > 2) q.set('waypoints', pts.slice(1, -1).join('|'));
+  return 'https://www.google.com/maps/dir/?' + q.toString();
 }
 
 /* =====================================================================
@@ -207,7 +238,27 @@ function render() {
   $('#groupWhen').textContent = info.when_text || '';
   if (!signedIn) return;
   $('#profileBtn').textContent = pname(meId());
-  renderOverview(); renderReading(); renderForum();
+  renderOverview(); renderReading(); renderForum(); renderMembers();
+}
+
+function renderMembers() {
+  $('#memberCount').textContent = `Medlemer (${S.members.length})`;
+  const all = mapsAllUrl(S.members);
+  const a = $('#mapAll'); a.hidden = !all; if (all) a.href = all;
+  const list = $('#memberList');
+  if (!S.members.length) {
+    list.replaceChildren(h('p', { class: 'muted', text: S.loaded ? 'Ingen medlemer lagt inn enno.' : 'Hentar medlemslista …' }));
+    return;
+  }
+  list.replaceChildren(...S.members.map(m => h('div', { class: 'member' },
+    h('div', { class: 'who' },
+      h('b', { text: m.name }),
+      m.role ? h('span', { class: 'role', text: m.role }) : null,
+      h('div', { class: 'contact' },
+        m.address ? h('a', { href: mapsUrl(m), target: '_blank', rel: 'noopener', text: fullAddress(m) + ' ↗' }) : null,
+        m.phone ? h('a', { href: 'tel:' + m.phone.replace(/\s/g, ''), text: m.phone }) : null,
+        m.email ? h('a', { href: 'mailto:' + m.email, text: m.email }) : null)),
+    h('button', { class: 'btn link', onclick: () => openMember(m) }, 'Endre'))));
 }
 
 function stat(n, label) { return h('div', { class: 'stat' }, h('span', { class: 'n', text: S.loaded ? n : '–' }), h('span', { class: 'muted', text: label })); }
@@ -259,8 +310,9 @@ function renderOverview() {
   $('#infoBox').replaceChildren(info.about
     ? h('p', { class: 'prose', text: info.about })
     : h('p', { class: 'muted', text: 'Skriv kort om gruppa, så nye medlemer finn fram.' }));
-  $('#membersLabel').textContent = `Medlemer (${S.profiles.length})`;
-  $('#members').replaceChildren(...S.profiles.map(p => h('span', { class: 'chip', text: (p.name || 'Utan namn') + (p.id === meId() ? ' (deg)' : '') })));
+  const names = S.members.length ? S.members.map(m => m.name) : S.profiles.map(p => p.name || 'Utan namn');
+  $('#membersLabel').textContent = `Medlemer (${names.length})`;
+  $('#members').replaceChildren(...names.map(n => h('button', { class: 'chip', type: 'button', onclick: () => showTab('medlemer'), text: n })));
 }
 
 function meetingRow(m) {
@@ -283,29 +335,55 @@ function renderReading() {
   $('#bibleProgress').style.width = (read / TOTAL_CH * 100).toFixed(2) + '%';
   $('#bibleProgressText').textContent = `${read} av ${TOTAL_CH} kapittel`;
 
-  const books = S.allBooks ? BOOKS : BOOKS.filter(b => map[b.id]);
-  const out = [];
-  let section = null;
-  for (const b of books) {
-    if (S.allBooks && b.t !== section) { section = b.t; out.push(h('h3', { text: b.t === 'GT' ? 'Det gamle testamentet' : 'Det nye testamentet' })); }
-    const chs = map[b.id] || {};
-    const done = Object.values(chs).filter(c => c.state === 'read').length;
+  // Alle 66 bøkene som fliser; dei vi har lese i er merka
+  const stats = id => {
+    const chs = map[id] || {};
+    const vals = Object.values(chs);
+    return { chs, read: vals.filter(c => c.state === 'read').length, planned: vals.filter(c => c.state === 'plan').length };
+  };
+  if (!S.selBook && !S.selBookManual) {
+    const latest = [...S.meetings].filter(m => BY[m.book]).sort((a, b) => b.date.localeCompare(a.date))[0];
+    if (latest) S.selBook = latest.book;
+  }
+  const grid = [];
+  for (const [t, label] of [['GT', 'Det gamle testamentet'], ['NT', 'Det nye testamentet']]) {
+    grid.push(h('h3', { text: label }));
+    grid.push(h('div', { class: 'tiles' }, BOOKS.filter(b => b.t === t).map(b => {
+      const s = stats(b.id);
+      const state = s.read === b.ch ? 'done' : s.read ? 'started' : s.planned ? 'planned' : '';
+      return h('button', {
+        type: 'button', class: 'tile ' + state, 'aria-pressed': String(S.selBook === b.id),
+        title: `${b.name}: ${s.read} av ${b.ch} kapittel lese`,
+        onclick: () => { S.selBook = S.selBook === b.id ? null : b.id; S.selBookManual = true; renderReading(); },
+      },
+        h('span', { class: 'tn', text: b.name }),
+        h('span', { class: 'tc', text: state === 'done' ? '✓ ferdig' : `${s.read}/${b.ch}` }),
+        s.read && state !== 'done' ? h('span', { class: 'tb', style: `width:${(s.read / b.ch * 100).toFixed(1)}%` }) : null);
+    })));
+  }
+  $('#bookGrid').replaceChildren(...grid);
+
+  const detail = $('#bookDetail');
+  const sel = BY[S.selBook];
+  detail.hidden = !sel;
+  if (sel) {
+    const s = stats(sel.id);
     const cells = [];
-    for (let c = 1; c <= b.ch; c++) {
-      const st = chs[c];
+    for (let c = 1; c <= sel.ch; c++) {
+      const st = s.chs[c];
       cells.push(h('span', {
         class: 'cell' + (st ? ' ' + st.state : ''),
-        title: `${b.name} ${c}` + (st ? (st.state === 'read' ? ' – lese ' : ' – planlagt ') + fmtShort(st.date) : ''),
+        title: `${sel.name} ${c}` + (st ? (st.state === 'read' ? ' – lese ' : ' – planlagt ') + fmtShort(st.date) : ''),
         text: c,
       }));
     }
-    out.push(h('div', { class: 'book' },
-      h('div', { class: 'bn' }, h('b', { text: b.name }), h('span', { text: `${done} / ${b.ch}` + (done === b.ch ? ' · ferdig' : '') })),
-      h('div', { class: 'cells' }, cells)));
+    const meetings = S.meetings.filter(m => m.book === sel.id).sort((a, b) => a.date.localeCompare(b.date));
+    detail.replaceChildren(
+      h('div', { class: 'row' }, h('h2', { text: sel.name }), h('span', { class: 'muted', text: `${s.read} av ${sel.ch} kapittel lese` })),
+      h('div', { class: 'cells' }, cells),
+      h('span', { class: 'legend' }, h('i', { class: 'cell read' }), ' lese ', h('i', { class: 'cell plan' }), ' planlagt'),
+      meetings.length ? h('div', { class: 'list' }, meetings.map(meetingRow)) : h('p', { class: 'muted', text: 'Ingen samlingar i denne boka enno.' }));
   }
-  if (!out.length) out.push(h('p', { class: 'muted', text: 'Når de legg inn ein bibeltekst på ei samling, dukkar boka opp her med kapitla de har lese.' }));
-  $('#bookMap').replaceChildren(...out);
-  $('#toggleBooks').textContent = S.allBooks ? 'Vis berre bøker vi har byrja på' : 'Vis alle bøkene';
 
   const { past } = split();
   const tally = {};
@@ -319,9 +397,9 @@ function renderReading() {
     : [h('span', { class: 'muted', text: 'Når ei samling er over, kjem verten her.' })]));
   $('#pastList').replaceChildren(...(past.length ? past.map(meetingRow)
     : [h('p', { class: 'muted', text: 'Ingen tidlegare samlingar enno. Legg inn dei de har hatt, så får de historikken med.' })]));
-  $('#hostOptions').replaceChildren(...chips.map(c => h('option', { value: c.name })));
+  const hostNames = [...new Set([...S.members.map(m => m.name), ...chips.map(c => c.name)])];
+  $('#hostOptions').replaceChildren(...hostNames.map(n => h('option', { value: n })));
 }
-$('#toggleBooks').addEventListener('click', () => { S.allBooks = !S.allBooks; renderReading(); });
 
 function byline(id, t, extra) {
   return h('div', { class: 'meta' },
@@ -372,7 +450,7 @@ async function run(p) {
 async function reload() {
   try {
     const d = await store.loadAll();
-    Object.assign(S, { meetings: d.meetings || [], threads: d.threads || [], profiles: d.profiles || [], info: d.info, loaded: true });
+    Object.assign(S, { meetings: d.meetings || [], threads: d.threads || [], profiles: d.profiles || [], members: d.members || [], info: d.info, loaded: true });
     setStatus('');
   } catch (err) {
     console.error(err);
@@ -394,7 +472,7 @@ function scheduleReload(table) {
 /* =====================================================================
    Faner
    ===================================================================== */
-const TABS = ['oversikt', 'lesing', 'forum'];
+const TABS = ['oversikt', 'lesing', 'forum', 'medlemer'];
 function showTab(name) {
   document.querySelectorAll('#app nav.tabs button').forEach(b => b.setAttribute('aria-selected', String(b.dataset.tab === name)));
   TABS.forEach(n => $('#pane-' + n).hidden = n !== name);
@@ -430,15 +508,59 @@ mFrom.addEventListener('change', () => syncPassage(+mFrom.value, Math.max(+mTo.v
 mTo.addEventListener('change', updatePreview);
 $('#mVerses').addEventListener('input', updatePreview);
 
+function setSpan(n) {
+  const b = BY[mBook.value];
+  if (!b) return;
+  const from = +mFrom.value || 1;
+  syncPassage(from, Math.min(b.ch, from + n - 1));
+}
+function markSpan() {
+  const n = BY[mBook.value] ? (+mTo.value - +mFrom.value + 1) : 0;
+  document.querySelectorAll('[data-span]').forEach(b => { b.classList.toggle('on', +b.dataset.span === n); b.disabled = !BY[mBook.value]; });
+}
+document.querySelectorAll('[data-span]').forEach(b => b.addEventListener('click', () => { setSpan(+b.dataset.span); markSpan(); }));
+[mBook, mFrom, mTo].forEach(el => el.addEventListener('change', markSpan));
+
 function applySuggestion() {
   const s = suggestNext();
   if (!s) return;
   mBook.value = s.book;
-  syncPassage(s.ch, s.ch);
+  syncPassage(s.ch, Math.min(BY[s.book].ch, s.ch + s.span - 1));
   $('#mVerses').value = '';
-  updatePreview();
+  updatePreview(); markSpan();
 }
 $('#suggestBtn').addEventListener('click', applySuggestion);
+
+/* ---------- Medlemer ---------- */
+let editingMember = null;
+function openMember(m) {
+  editingMember = m;
+  $('#memberTitle').textContent = m ? 'Endre medlem' : 'Nytt medlem';
+  $('#mbName').value = m ? m.name : '';
+  $('#mbRole').value = m ? (m.role || '') : '';
+  $('#mbAddress').value = m ? (m.address || '') : '';
+  $('#mbPostcode').value = m ? (m.postcode || '') : '4335';
+  $('#mbPlace').value = m ? (m.place || '') : 'Dirdal';
+  $('#mbPhone').value = m ? (m.phone || '') : '';
+  $('#mbEmail').value = m ? (m.email || '') : '';
+  const del = $('#mbDelete'); del.hidden = !m; del.classList.remove('armed'); del.textContent = 'Slett';
+  $('#memberDlg').showModal();
+}
+$('#addMember').addEventListener('click', () => openMember(null));
+$('#mbCancel').addEventListener('click', () => $('#memberDlg').close());
+$('#mbDelete').addEventListener('click', async e => {
+  const b = e.currentTarget;
+  if (!b.classList.contains('armed')) { b.classList.add('armed'); b.textContent = 'Trykk igjen for å slette'; return; }
+  if (await run(store.deleteMember(editingMember.id))) { $('#memberDlg').close(); reload(); }
+});
+$('#memberForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const v = id => $(id).value.trim() || null;
+  const row = { name: v('#mbName'), role: v('#mbRole'), address: v('#mbAddress'), postcode: v('#mbPostcode'), place: v('#mbPlace'), phone: v('#mbPhone'), email: v('#mbEmail') };
+  if (editingMember) row.id = editingMember.id;
+  else row.sort = S.members.reduce((mx, m) => Math.max(mx, m.sort || 0), 0) + 1;
+  if (await run(store.saveMember(row))) { $('#memberDlg').close(); reload(); }
+});
 
 let editing = null;
 function openMeeting(m) {
@@ -456,7 +578,7 @@ function openMeeting(m) {
   $('#suggestBtn').hidden = !s;
   $('#suggestHint').textContent = s ? `Sist: ${ref(s.after)}. Neste: ${BY[s.book].abbr} ${s.ch}` : '';
   if (!m && s) applySuggestion();
-  updatePreview();
+  updatePreview(); markSpan();
   const del = $('#mDelete'); del.hidden = !m; del.classList.remove('armed'); del.textContent = 'Slett';
   $('#meetingDlg').showModal();
 }
