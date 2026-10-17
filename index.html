@@ -75,9 +75,53 @@
         <div class="row"><span class="label">Neste samling</span><span id="nextActions"></span></div>
         <div id="nextBox"></div>
       </div>
+      <div class="block" id="rsvpBlock" hidden>
+        <div class="row">
+          <span class="label">Kjem du?</span>
+          <span class="btns" id="rsvpBtns">
+            <button type="button" class="btn" data-rsvp="yes">Eg kjem</button>
+            <button type="button" class="btn" data-rsvp="maybe">Usikker</button>
+            <button type="button" class="btn" data-rsvp="no">Kjem ikkje</button>
+          </span>
+        </div>
+        <div id="rsvpList" class="rsvp"></div>
+      </div>
+      <div class="block" id="talkBlock" hidden>
+        <span class="label">Samtale om samlinga</span>
+        <div id="talkList"></div>
+        <form class="stack" id="talkForm">
+          <label class="f">Kommentar<textarea id="talkBody" rows="2" maxlength="4000" placeholder="Til dømes: Eg kan ikkje torsdag, kan vi ta onsdag i staden?"></textarea></label>
+          <details id="proposeBox">
+            <summary>Foreslå anna dag</summary>
+            <div class="grid2">
+              <label class="f">Ny dato<input type="date" id="talkDate"></label>
+              <label class="f">Klokka<input type="time" id="talkTime"></label>
+            </div>
+          </details>
+          <div class="row"><span class="hint">Alle i gruppa ser kommentaren.</span><button class="btn primary">Send</button></div>
+        </form>
+      </div>
       <div class="block" id="laterBlock" hidden>
         <span class="label">Seinare</span>
         <div class="list" id="laterList"></div>
+      </div>
+      <div class="block" id="calBlock">
+        <span class="label">Kalender på telefonen</span>
+        <p class="prose">Abonner på samlingane, så dukkar dei opp i kalenderen din av seg sjølv og blir oppdaterte når nokon endrar dato eller tekst.</p>
+        <div class="btns" id="calBtns">
+          <a class="btn primary" id="calSubscribe">Abonner (iPhone og Mac)</a>
+          <button type="button" class="btn" id="calCopy">Kopier kalenderlenkja</button>
+        </div>
+        <details class="hint">
+          <summary>Android og Google Kalender</summary>
+          <ol>
+            <li>Trykk «Kopier kalenderlenkja».</li>
+            <li>Opne <a href="https://calendar.google.com/calendar/r/settings/addbyurl" target="_blank" rel="noopener">calendar.google.com → Legg til kalender → Frå URL</a> på PC eller i nettlesaren.</li>
+            <li>Lim inn lenkja og trykk «Legg til kalender». Han dukkar opp på telefonen etter ei stund.</li>
+          </ol>
+          <p>Google oppdaterer abonnement nokre gonger i døgnet, så endringar kan ta litt tid. Kalenderlenkja er hemmeleg: ikkje del ho utanfor gruppa.</p>
+        </details>
+        <p class="hint" id="calMsg"></p>
       </div>
       <div class="block">
         <span class="label">Så langt</span>

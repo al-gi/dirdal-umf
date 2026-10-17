@@ -45,7 +45,7 @@ function supabaseStore() {
     async setPassword(password) { ok(await sb.auth.updateUser({ password })); },
     async signOut() { await sb.auth.signOut(); },
     async loadAll() {
-      const [m, t, p, i, mb, r, w] = await Promise.all([
+      const [m, t, p, i, mb, r, w, at, cm, pv] = await Promise.all([
         sb.from('meetings').select('*'),
         sb.from('threads').select('*').order('last_at', { ascending: false }),
         sb.from('profiles').select('id,name').order('name'),
@@ -53,10 +53,27 @@ function supabaseStore() {
         sb.from('members').select('*').order('sort').order('name'),
         sb.from('readings').select('*'),
         sb.from('wiki').select('*').order('updated_at', { ascending: false }),
+        sb.from('attendance').select('*'),
+        sb.from('meeting_comments').select('*').order('created_at'),
+        sb.from('proposal_votes').select('*'),
       ]);
-      // readings/wiki finst først etter oppdatering-2.sql; manglar dei, går resten likevel
+      // Tabellar frå oppdatering-2/3.sql: manglar dei, går resten likevel
       const soft = x => (x.error ? [] : x.data);
-      return { meetings: ok(m), threads: ok(t), profiles: ok(p), info: ok(i), members: ok(mb), readings: soft(r), wiki: soft(w), needsUpdate: !!(r.error || w.error) };
+      return { meetings: ok(m), threads: ok(t), profiles: ok(p), info: ok(i), members: ok(mb), readings: soft(r), wiki: soft(w),
+        attendance: soft(at), comments: soft(cm), votes: soft(pv),
+        needsUpdate: [r, w].some(x => x.error) ? 'oppdatering-2.sql' : [at, cm, pv].some(x => x.error) ? 'oppdatering-3.sql' : null };
+    },
+    async setAttendance(meetingId, status) {
+      const uid = (await this.session()).user.id;
+      if (!status) ok(await sb.from('attendance').delete().eq('meeting_id', meetingId).eq('user_id', uid));
+      else ok(await sb.from('attendance').upsert({ meeting_id: meetingId, user_id: uid, status, updated_at: now() }, { onConflict: 'meeting_id,user_id' }));
+    },
+    async addComment(row) { ok(await sb.from('meeting_comments').insert(row)); },
+    async deleteComment(id) { ok(await sb.from('meeting_comments').delete().eq('id', id)); },
+    async vote(commentId, on) {
+      const uid = (await this.session()).user.id;
+      if (on) ok(await sb.from('proposal_votes').insert({ comment_id: commentId, user_id: uid }));
+      else ok(await sb.from('proposal_votes').delete().eq('comment_id', commentId).eq('user_id', uid));
     },
     async addReading(row) { ok(await sb.from('readings').insert(row)); },
     async deleteReading(id) { ok(await sb.from('readings').delete().eq('id', id)); },
@@ -120,7 +137,20 @@ function demoStore() {
     onAuth() {},
     async signIn() {}, async signUp() {}, async reset() {}, async setPassword() {},
     async signOut() { try { localStorage.removeItem(KEY); } catch {} location.reload(); },
-    async loadAll() { return JSON.parse(JSON.stringify({ meetings: db.meetings, threads: [...db.threads].sort((a, b) => b.last_at.localeCompare(a.last_at)), profiles: db.profiles, info: db.info, members: [...(db.members || [])].sort((a, b) => a.sort - b.sort), readings: db.readings || [], wiki: [...(db.wiki || [])].sort((a, b) => b.updated_at.localeCompare(a.updated_at)) })); },
+    async loadAll() { return JSON.parse(JSON.stringify({ meetings: db.meetings, threads: [...db.threads].sort((a, b) => b.last_at.localeCompare(a.last_at)), profiles: db.profiles, info: db.info, members: [...(db.members || [])].sort((a, b) => a.sort - b.sort), readings: db.readings || [], wiki: [...(db.wiki || [])].sort((a, b) => b.updated_at.localeCompare(a.updated_at)),
+      attendance: db.attendance || [], comments: db.comments || [], votes: db.votes || [] })); },
+    async setAttendance(meetingId, status) {
+      db.attendance = (db.attendance || []).filter(a => !(a.meeting_id === meetingId && a.user_id === 'demo'));
+      if (status) db.attendance.push({ meeting_id: meetingId, user_id: 'demo', status });
+      save();
+    },
+    async addComment(row) { (db.comments ||= []).push({ ...row, id: uid(), author: 'demo', created_at: ts() }); save(); },
+    async deleteComment(id) { db.comments = (db.comments || []).filter(c => c.id !== id); db.votes = (db.votes || []).filter(v => v.comment_id !== id); save(); },
+    async vote(commentId, on) {
+      db.votes = (db.votes || []).filter(v => !(v.comment_id === commentId && v.user_id === 'demo'));
+      if (on) db.votes.push({ comment_id: commentId, user_id: 'demo' });
+      save();
+    },
     async addReading(row) { (db.readings ||= []).push({ ...row, id: uid(), created_at: ts() }); save(); },
     async deleteReading(id) { db.readings = (db.readings || []).filter(r => r.id !== id); save(); },
     async saveWiki(p) {
@@ -163,7 +193,7 @@ const store = DEMO ? demoStore() : supabaseStore();
 /* =====================================================================
    Tilstand og hjelparar
    ===================================================================== */
-const S = { session: null, meetings: [], threads: [], profiles: [], members: [], readings: [], wiki: [], info: null, replies: [], openThread: null, loaded: false, selBook: null,
+const S = { session: null, meetings: [], threads: [], profiles: [], members: [], readings: [], wiki: [], attendance: [], comments: [], votes: [], info: null, replies: [], openThread: null, loaded: false, selBook: null,
   wikiQuery: '', wikiTag: null, openWiki: null };
 const meId = () => S.session && S.session.user.id;
 
@@ -360,6 +390,150 @@ $('#wikiForm').addEventListener('submit', async e => {
   if (await run(store.saveWiki(row))) { $('#wikiDlg').close(); reload(); }
 });
 
+/* ---------- Påmelding ---------- */
+const RSVP = { yes: 'Kjem', maybe: 'Usikker', no: 'Kjem ikkje' };
+function renderRsvp(next) {
+  $('#rsvpBlock').hidden = !next;
+  if (!next) return;
+  const rows = S.attendance.filter(a => a.meeting_id === next.id);
+  const mine = (rows.find(a => a.user_id === meId()) || {}).status;
+  document.querySelectorAll('[data-rsvp]').forEach(b => {
+    b.classList.toggle('on', b.dataset.rsvp === mine);
+    b.setAttribute('aria-pressed', String(b.dataset.rsvp === mine));
+  });
+  const groups = Object.keys(RSVP).map(st => {
+    const ids = rows.filter(a => a.status === st).map(a => a.user_id);
+    return ids.length ? h('div', { class: 'rsvp-row ' + st },
+      h('span', { class: 'rsvp-k', text: `${RSVP[st]} (${ids.length})` }),
+      h('span', { text: ids.map(id => pname(id) + (id === meId() ? ' (deg)' : '')).join(', ') })) : null;
+  }).filter(Boolean);
+  const answered = new Set(rows.map(a => a.user_id));
+  const silent = S.profiles.filter(p => !answered.has(p.id));
+  if (silent.length) groups.push(h('div', { class: 'rsvp-row none' },
+    h('span', { class: 'rsvp-k', text: `Ikkje svart (${silent.length})` }),
+    h('span', { text: silent.map(p => p.name || 'Utan namn').join(', ') })));
+  $('#rsvpList').replaceChildren(...groups);
+}
+document.querySelectorAll('[data-rsvp]').forEach(b => b.addEventListener('click', async () => {
+  const next = split().future[0];
+  if (!next) return;
+  const mine = (S.attendance.find(a => a.meeting_id === next.id && a.user_id === meId()) || {}).status;
+  if (await run(store.setAttendance(next.id, mine === b.dataset.rsvp ? null : b.dataset.rsvp))) reload();
+}));
+
+/* ---------- Samtale og forslag om ny dag ---------- */
+function renderTalk(next) {
+  $('#talkBlock').hidden = !next;
+  if (!next) return;
+  const items = S.comments.filter(c => c.meeting_id === next.id);
+  if (!items.length) {
+    $('#talkList').replaceChildren(h('p', { class: 'muted', text: 'Ingen kommentarar enno. Må de byte dag, kan de foreslå ein ny her.' }));
+    return;
+  }
+  $('#talkList').replaceChildren(...items.map(c => {
+    const voters = S.votes.filter(v => v.comment_id === c.id).map(v => v.user_id);
+    const iVoted = voters.includes(meId());
+    const isCurrent = c.proposed_date === next.date && (c.proposed_time || '') === (next.time || '').slice(0, 5);
+    return h('div', { class: 'post talk' },
+      byline(c.author, c.created_at, c.author === meId() ? delBtn(() => run(store.deleteComment(c.id)).then(reload)) : null),
+      c.body ? h('div', { class: 'body', text: c.body }) : null,
+      c.proposed_date ? h('div', { class: 'proposal' + (isCurrent ? ' chosen' : '') },
+        h('div', {},
+          h('span', { class: 'label', text: isCurrent ? 'Valt dato' : 'Forslag til ny dag' }),
+          h('div', { class: 'pdate', text: cap(fmtLong(c.proposed_date)) + (c.proposed_time ? ' kl. ' + c.proposed_time.replace(':', '.') : '') }),
+          h('div', { class: 'hint', text: voters.length ? `Passar for ${voters.length}: ` + voters.map(pname).join(', ') : 'Ingen har svart enno' })),
+        h('div', { class: 'btns' },
+          h('button', { type: 'button', class: 'btn small' + (iVoted ? ' on' : ''), onclick: () => run(store.vote(c.id, !iVoted)).then(reload) }, iVoted ? '✓ Passar for meg' : 'Passar for meg'),
+          isCurrent ? null : moveBtn(next, c))) : null);
+  }));
+}
+function moveBtn(next, c) {
+  const b = h('button', { type: 'button', class: 'btn small' }, 'Flytt samlinga hit');
+  b.addEventListener('click', async () => {
+    if (!b.dataset.armed) { b.dataset.armed = '1'; b.textContent = 'Trykk igjen for å flytte'; setTimeout(() => { delete b.dataset.armed; b.textContent = 'Flytt samlinga hit'; }, 4000); return; }
+    const { id, date, time } = next;
+    const row = { ...next, date: c.proposed_date, time: c.proposed_time || time || null };
+    delete row.created_by; delete row.updated_at;
+    if (await run(store.saveMeeting(row))) {
+      await run(store.addComment({ meeting_id: id, body: `Flytta samlinga frå ${fmtLong(date)} til ${fmtLong(c.proposed_date)}.` }));
+      reload();
+    }
+  });
+  return b;
+}
+$('#talkForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const next = split().future[0];
+  const body = $('#talkBody').value.trim(), date = $('#talkDate').value, time = $('#talkTime').value;
+  if (!next || (!body && !date)) return;
+  if (await run(store.addComment({ meeting_id: next.id, body, proposed_date: date || null, proposed_time: date ? (time || null) : null }))) {
+    e.target.reset(); $('#proposeBox').open = false; reload();
+  }
+});
+
+/* ---------- Kalender (.ics) ---------- */
+const ICS_TZ = ['BEGIN:VTIMEZONE', 'TZID:Europe/Oslo',
+  'BEGIN:DAYLIGHT', 'TZOFFSETFROM:+0100', 'TZOFFSETTO:+0200', 'TZNAME:CEST', 'DTSTART:19700329T020000', 'RRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=-1SU', 'END:DAYLIGHT',
+  'BEGIN:STANDARD', 'TZOFFSETFROM:+0200', 'TZOFFSETTO:+0100', 'TZNAME:CET', 'DTSTART:19701025T030000', 'RRULE:FREQ=YEARLY;BYMONTH=10;BYDAY=-1SU', 'END:STANDARD',
+  'END:VTIMEZONE'];
+const icsText = s => String(s || '').replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\r?\n/g, '\\n');
+function icsFold(line) {
+  const out = [];
+  while (line.length > 72) { out.push(line.slice(0, 72)); line = ' ' + line.slice(72); }
+  out.push(line);
+  return out.join('\r\n');
+}
+const pad = n => String(n).padStart(2, '0');
+const icsLocal = d => `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}T${pad(d.getHours())}${pad(d.getMinutes())}00`;
+function icsEvent(m) {
+  const groupName = (S.info && S.info.name) || DEFAULT_NAME;
+  const r = ref(m, true);
+  const member = S.members.find(x => m.host && x.name.toLowerCase() === m.host.trim().toLowerCase());
+  const lines = ['BEGIN:VEVENT', `UID:${m.id}@dirdal-umf`, 'DTSTAMP:' + new Date().toISOString().replace(/[-:]/g, '').slice(0, 15) + 'Z'];
+  if (m.time) {
+    const [hh, mm] = m.time.slice(0, 5).split(':').map(Number);
+    const start = new Date(m.date + 'T00:00:00'); start.setHours(hh, mm);
+    const end = new Date(start.getTime() + 2 * 36e5);
+    lines.push(`DTSTART;TZID=Europe/Oslo:${icsLocal(start)}`, `DTEND;TZID=Europe/Oslo:${icsLocal(end)}`);
+  } else {
+    const d = new Date(m.date + 'T12:00:00'), e = new Date(d.getTime() + 864e5);
+    lines.push(`DTSTART;VALUE=DATE:${icsLocal(d).slice(0, 8)}`, `DTEND;VALUE=DATE:${icsLocal(e).slice(0, 8)}`);
+  }
+  lines.push('SUMMARY:' + icsText(groupName + (r ? ': ' + r : '')));
+  const desc = [r && 'Les: ' + r, m.topic, m.host && 'Hos ' + m.host, m.note].filter(Boolean).join('\n');
+  if (desc) lines.push('DESCRIPTION:' + icsText(desc));
+  if (m.host) lines.push('LOCATION:' + icsText(member && member.address ? `${m.host}, ${fullAddress(member)}` : m.host));
+  lines.push('END:VEVENT');
+  return lines;
+}
+function buildIcs(meetings) {
+  const lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Dirdal Unge Mannsforening//Bibelgruppe//NN', 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH',
+    'X-WR-CALNAME:' + icsText((S.info && S.info.name) || DEFAULT_NAME), 'X-WR-TIMEZONE:Europe/Oslo', ...ICS_TZ, ...meetings.flatMap(icsEvent), 'END:VCALENDAR'];
+  return lines.map(icsFold).join('\r\n') + '\r\n';
+}
+function downloadIcs(meetings, filename) {
+  const blob = new Blob([buildIcs(meetings)], { type: 'text/calendar;charset=utf-8' });
+  const a = h('a', { href: URL.createObjectURL(blob), download: filename });
+  document.body.append(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+}
+function calendarUrl() {
+  const token = S.info && S.info.calendar_token;
+  return token && !DEMO ? `${cfg.supabaseUrl}/functions/v1/kalender?token=${token}` : null;
+}
+function renderCalendar() {
+  const url = calendarUrl();
+  const sub = $('#calSubscribe');
+  sub.hidden = !url; $('#calCopy').hidden = !url;
+  if (url) sub.href = url.replace(/^https:/, 'webcal:');
+  $('#calMsg').textContent = url ? '' : DEMO ? 'Kalenderabonnement fungerer berre på den ekte sida.' : 'Kalenderabonnementet er ikkje sett opp enno (oppdatering-3.sql og kalenderfunksjonen i Supabase).';
+}
+$('#calCopy').addEventListener('click', async () => {
+  const url = calendarUrl(); if (!url) return;
+  try { await navigator.clipboard.writeText(url); $('#calMsg').textContent = 'Lenkja er kopiert.'; }
+  catch { $('#calMsg').textContent = url; }
+});
+
 /* ---------- Anna info ---------- */
 $('#editNotice').addEventListener('click', () => { $('#nText').value = (S.info && S.info.notice) || ''; $('#noticeDlg').showModal(); });
 $('#nCancel').addEventListener('click', () => $('#noticeDlg').close());
@@ -414,13 +588,19 @@ function renderOverview() {
       h('button', { class: 'btn primary', onclick: () => openMeeting(null) }, 'Planlegg neste samling')));
   } else {
     box.append(h('article', { class: 'next' },
-      h('div', { class: 'row' }, h('span', { class: 'rel', text: relDays(next.date) }), h('button', { class: 'btn', onclick: () => openMeeting(next) }, 'Endre')),
+      h('div', { class: 'row' }, h('span', { class: 'rel', text: relDays(next.date) }),
+        h('span', { class: 'btns' },
+          h('button', { class: 'btn', onclick: () => downloadIcs([next], 'samling-' + next.date + '.ics') }, 'Legg i kalender'),
+          h('button', { class: 'btn', onclick: () => openMeeting(next) }, 'Endre'))),
       h('div', { class: 'when', text: cap(fmtLong(next.date)) + (next.time ? ' kl. ' + next.time.slice(0, 5).replace(':', '.') : '') }),
       h('dl', {},
         h('dt', { class: 'label', text: 'Les til då' }), h('dd', {}, readingBlock(next)),
         h('dt', { class: 'label', text: 'Hos' }), h('dd', { text: next.host || 'Ikkje bestemt enno' }),
         next.note ? [h('dt', { class: 'label', text: 'Notat' }), h('dd', { class: 'prose', text: next.note })] : null)));
   }
+  renderRsvp(S.loaded ? next : null);
+  renderTalk(S.loaded ? next : null);
+  renderCalendar();
   const later = future.slice(1);
   $('#laterBlock').hidden = !later.length;
   $('#laterList').replaceChildren(...later.map(meetingRow));
@@ -617,8 +797,9 @@ async function run(p) {
 async function reload() {
   try {
     const d = await store.loadAll();
-    Object.assign(S, { meetings: d.meetings || [], threads: d.threads || [], profiles: d.profiles || [], members: d.members || [], readings: d.readings || [], wiki: d.wiki || [], info: d.info, loaded: true });
-    setStatus(d.needsUpdate ? 'Databasen manglar ei oppdatering, så Wiki og registrering av lesing kan ikkje lagre noko enno. Den som styrer Supabase må køyre oppdatering-2.sql i SQL Editor.' : '');
+    Object.assign(S, { meetings: d.meetings || [], threads: d.threads || [], profiles: d.profiles || [], members: d.members || [], readings: d.readings || [], wiki: d.wiki || [],
+      attendance: d.attendance || [], comments: d.comments || [], votes: d.votes || [], info: d.info, loaded: true });
+    setStatus(d.needsUpdate ? `Databasen manglar ei oppdatering, så nokre funksjonar kan ikkje lagre noko enno. Den som styrer Supabase må køyre ${d.needsUpdate} i SQL Editor.` : '');
   } catch (err) {
     console.error(err);
     setStatus('Fekk ikkje henta data. Last sida på nytt.');
