@@ -99,6 +99,15 @@ a.btn{text-decoration:none}
 
 .member .bio{margin-top:.5rem;max-width:65ch;white-space:pre-wrap;font-family:var(--display);font-size:.98rem;line-height:1.6}
 
+/* Utsett og avlyst */
+.rel.warn{background:var(--verse);color:var(--surface)}
+.next.postponed{border:1.5px dashed var(--verse)}
+.next .statusrow{border-top:1px solid var(--line);padding-top:.75rem}
+.badge{align-self:flex-start;font-size:.75rem;font-weight:600;padding:.1rem .5rem;border-radius:999px;border:1px solid currentColor}
+.badge.cancelled{color:var(--danger)}
+.badge.postponed{color:var(--verse)}
+.item.off.cancelled .verse{text-decoration:line-through;opacity:.6}
+
 /* Dagens vers og påminning */
 .daily{margin:0;display:flex;flex-direction:column;gap:.5rem;padding:1rem 1.25rem;border-left:3px solid var(--verse);background:var(--surface);border-radius:0 var(--r) var(--r) 0}
 .daily blockquote{margin:0;font-family:var(--display);font-style:italic;font-size:1.15rem;line-height:1.5;max-width:60ch}

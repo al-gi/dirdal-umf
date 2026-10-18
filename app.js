@@ -62,7 +62,8 @@ function supabaseStore() {
       const soft = x => (x.error ? [] : x.data);
       return { meetings: ok(m), threads: ok(t), profiles: ok(p), info: ok(i), members: ok(mb), readings: soft(r), wiki: soft(w),
         attendance: soft(at), comments: soft(cm), votes: soft(pv), verses: soft(vs),
-        needsUpdate: [r, w].some(x => x.error) ? 'oppdatering-2.sql' : [at, cm, pv].some(x => x.error) ? 'oppdatering-3.sql' : vs.error ? 'oppdatering-4.sql' : null };
+        needsUpdate: [r, w].some(x => x.error) ? 'oppdatering-2.sql' : [at, cm, pv].some(x => x.error) ? 'oppdatering-3.sql' : vs.error ? 'oppdatering-4.sql'
+          : (m.data && m.data.length && !('status' in m.data[0])) ? 'oppdatering-5.sql' : null };
     },
     async addVerse(row) { ok(await sb.from('verses').insert(row)); },
     async deleteVerse(id) { ok(await sb.from('verses').delete().eq('id', id)); },
@@ -247,21 +248,32 @@ function chapterLinks(m) {
   return out;
 }
 
+/* Status på samlingar: planned (vanleg), postponed (utsett, ny dato ikkje bestemt), cancelled (avlyst) */
+const isActive = m => !m.status || m.status === 'planned';
+const STATUS_LABEL = { postponed: 'Utsett', cancelled: 'Avlyst' };
+
+/** future: planlagde frå i dag; past: alt før i dag utanom utsette (avlyste med, for historikken); postponed: utsette */
 function split() {
   const t = today();
   const sorted = [...S.meetings].sort((a, b) => (a.date + (a.time || '')).localeCompare(b.date + (b.time || '')));
-  return { future: sorted.filter(m => m.date >= t), past: sorted.filter(m => m.date < t).reverse() };
+  return {
+    future: sorted.filter(m => isActive(m) && m.date >= t),
+    past: sorted.filter(m => m.date < t && m.status !== 'postponed').reverse(),
+    postponed: sorted.filter(m => m.status === 'postponed'),
+  };
 }
+/** Den samlinga som står øvst: ei utsett samling går føre, sidan ho ventar på ny dato. */
+function nextMeeting() { const s = split(); return s.postponed[0] || s.future[0]; }
 
 /** Per bok: kapittel → {state: 'read'|'plan', date} */
 function readingMap() {
   const t = today(), map = {};
   const fromReadings = S.readings.map(r => ({ book: r.book, ch_from: r.ch_from, ch_to: r.ch_to, date: r.read_on || '0000-00-00', reading: true }));
-  for (const m of [...S.meetings, ...fromReadings]) {
+  for (const m of [...S.meetings.filter(x => x.status !== 'cancelled'), ...fromReadings]) {
     const b = BY[m.book];
     if (!b || !m.ch_from) continue;
     const to = Math.min(b.ch, Math.max(m.ch_from, m.ch_to || m.ch_from));
-    const state = m.reading || m.date < t ? 'read' : 'plan';
+    const state = m.reading || (m.date < t && isActive(m)) ? 'read' : 'plan';
     for (let c = m.ch_from; c <= to; c++) {
       const book = (map[m.book] ||= {});
       const cur = book[c];
@@ -274,7 +286,7 @@ function readingMap() {
 /** Neste kapittel etter den siste samlinga som har ein bibeltekst, med same tal kapittel (1 eller 2) som sist. */
 function suggestNext() {
   const fromReadings = S.readings.map(r => ({ book: r.book, ch_from: r.ch_from, ch_to: r.ch_to, date: r.read_on || (r.created_at || '').slice(0, 10) }));
-  const withBook = [...S.meetings, ...fromReadings].filter(m => BY[m.book] && m.ch_from).sort((a, b) => b.date.localeCompare(a.date));
+  const withBook = [...S.meetings.filter(m => m.status !== 'cancelled'), ...fromReadings].filter(m => BY[m.book] && m.ch_from).sort((a, b) => b.date.localeCompare(a.date));
   const last = withBook[0];
   if (!last) return null;
   const b = BY[last.book];
@@ -414,8 +426,8 @@ $('#wikiForm').addEventListener('submit', async e => {
 /* ---------- Påmelding ---------- */
 const RSVP = { yes: 'Kjem', maybe: 'Usikker', no: 'Kjem ikkje' };
 function renderRsvp(next) {
-  $('#rsvpBlock').hidden = !next;
-  if (!next) return;
+  $('#rsvpBlock').hidden = !next || !isActive(next);
+  if (!next || !isActive(next)) return;
   const rows = S.attendance.filter(a => a.meeting_id === next.id);
   const mine = (rows.find(a => a.user_id === meId()) || {}).status;
   document.querySelectorAll('[data-rsvp]').forEach(b => {
@@ -436,8 +448,8 @@ function renderRsvp(next) {
   $('#rsvpList').replaceChildren(...groups);
 }
 document.querySelectorAll('[data-rsvp]').forEach(b => b.addEventListener('click', async () => {
-  const next = split().future[0];
-  if (!next) return;
+  const next = nextMeeting();
+  if (!next || !isActive(next)) return;
   const mine = (S.attendance.find(a => a.meeting_id === next.id && a.user_id === meId()) || {}).status;
   if (await run(store.setAttendance(next.id, mine === b.dataset.rsvp ? null : b.dataset.rsvp))) reload();
 }));
@@ -454,7 +466,7 @@ function renderTalk(next) {
   $('#talkList').replaceChildren(...items.map(c => {
     const voters = S.votes.filter(v => v.comment_id === c.id).map(v => v.user_id);
     const iVoted = voters.includes(meId());
-    const isCurrent = c.proposed_date === next.date && (c.proposed_time || '') === (next.time || '').slice(0, 5);
+    const isCurrent = isActive(next) && c.proposed_date === next.date && (c.proposed_time || '') === (next.time || '').slice(0, 5);
     return h('div', { class: 'post talk' },
       byline(c.author, c.created_at, c.author === meId() ? delBtn(() => run(store.deleteComment(c.id)).then(reload)) : null),
       c.body ? h('div', { class: 'body', text: c.body }) : null,
@@ -473,10 +485,13 @@ function moveBtn(next, c) {
   b.addEventListener('click', async () => {
     if (!b.dataset.armed) { b.dataset.armed = '1'; b.textContent = 'Trykk igjen for å flytte'; setTimeout(() => { delete b.dataset.armed; b.textContent = 'Flytt samlinga hit'; }, 4000); return; }
     const { id, date, time } = next;
-    const row = { ...next, date: c.proposed_date, time: c.proposed_time || time || null };
+    const wasPostponed = next.status === 'postponed';
+    const row = { ...next, date: c.proposed_date, time: c.proposed_time || time || null, status: 'planned', status_note: null };
     delete row.created_by; delete row.updated_at;
     if (await run(store.saveMeeting(row))) {
-      await run(store.addComment({ meeting_id: id, body: `Flytta samlinga frå ${fmtLong(date)} til ${fmtLong(c.proposed_date)}.` }));
+      await run(store.addComment({ meeting_id: id, body: wasPostponed
+        ? `Ny dato for den utsette samlinga: ${fmtLong(c.proposed_date)}.`
+        : `Flytta samlinga frå ${fmtLong(date)} til ${fmtLong(c.proposed_date)}.` }));
       reload();
     }
   });
@@ -484,7 +499,7 @@ function moveBtn(next, c) {
 }
 $('#talkForm').addEventListener('submit', async e => {
   e.preventDefault();
-  const next = split().future[0];
+  const next = nextMeeting();
   const body = $('#talkBody').value.trim(), date = $('#talkDate').value, time = $('#talkTime').value;
   if (!next || (!body && !date)) return;
   if (await run(store.addComment({ meeting_id: next.id, body, proposed_date: date || null, proposed_time: date ? (time || null) : null }))) {
@@ -520,12 +535,14 @@ function icsEvent(m) {
     const d = new Date(m.date + 'T12:00:00'), e = new Date(d.getTime() + 864e5);
     lines.push(`DTSTART;VALUE=DATE:${icsLocal(d).slice(0, 8)}`, `DTEND;VALUE=DATE:${icsLocal(e).slice(0, 8)}`);
   }
-  lines.push('SUMMARY:' + icsText(groupName + (r ? ': ' + r : '')));
+  const off = STATUS_LABEL[m.status];
+  if (off) lines.push('STATUS:CANCELLED');
+  lines.push('SUMMARY:' + icsText((off ? off.toUpperCase() + ': ' : '') + groupName + (r ? ': ' + r : '')));
   const desc = [r && 'Les: ' + r, r && 'På nett: ' + bibleUrl(m.book, m.ch_from), m.topic, m.host && 'Hos ' + m.host, m.note].filter(Boolean).join('\n');
   if (desc) lines.push('DESCRIPTION:' + icsText(desc));
   if (m.host) lines.push('LOCATION:' + icsText(member && member.address ? `${m.host}, ${fullAddress(member)}` : m.host));
   // Påminning dagen før (kl. 18 dagen før for samlingar utan klokkeslett)
-  lines.push('BEGIN:VALARM', 'ACTION:DISPLAY', 'DESCRIPTION:' + icsText('I morgon: bibelgruppe' + (m.host ? ' hos ' + m.host : '') + (r ? '. Les ' + r : '')),
+  if (!off) lines.push('BEGIN:VALARM', 'ACTION:DISPLAY', 'DESCRIPTION:' + icsText('I morgon: bibelgruppe' + (m.host ? ' hos ' + m.host : '') + (r ? '. Les ' + r : '')),
     'TRIGGER:' + (m.time ? '-P1D' : '-PT6H'), 'END:VALARM');
   lines.push('END:VEVENT');
   return lines;
@@ -667,6 +684,28 @@ function renderMembers() {
     h('button', { class: 'btn link', onclick: () => openMember(m) }, 'Endre'))));
 }
 
+/** Knapp som utset eller avlyser ei samling (to trykk), og skriv ein beskjed i samtalen. */
+function statusBtn(m, status, label) {
+  const b = h('button', { type: 'button', class: 'btn' + (status === 'cancelled' ? ' danger' : '') }, label);
+  b.addEventListener('click', async () => {
+    if (!b.dataset.armed) {
+      b.dataset.armed = '1'; b.classList.add('armed'); b.textContent = 'Trykk igjen for å ' + (status === 'cancelled' ? 'avlyse' : 'utsetje');
+      setTimeout(() => { delete b.dataset.armed; b.classList.remove('armed'); b.textContent = label; }, 4000);
+      return;
+    }
+    const row = { ...m, status };
+    delete row.created_by; delete row.updated_at;
+    if (await run(store.saveMeeting(row))) {
+      await run(store.addComment({ meeting_id: m.id, body: status === 'cancelled'
+        ? `Samlinga ${fmtLong(m.date)} er avlyst.`
+        : `Samlinga ${fmtLong(m.date)} er utsett. Ny dato er ikkje bestemt enno, så foreslå gjerne ein dag her.` }));
+      if (status === 'postponed') $('#proposeBox').open = true;
+      reload();
+    }
+  });
+  return b;
+}
+
 function stat(n, label) { return h('div', { class: 'stat' }, h('span', { class: 'n', text: S.loaded ? n : '–' }), h('span', { class: 'muted', text: label })); }
 
 function readingBlock(m) {
@@ -681,8 +720,8 @@ function readingBlock(m) {
 }
 
 function renderOverview() {
-  const { future, past } = split();
-  const next = future[0];
+  const { future, past, postponed } = split();
+  const next = nextMeeting();
   const box = $('#nextBox'); box.replaceChildren();
   $('#nextActions').replaceChildren(next ? h('button', { class: 'btn link', onclick: () => openMeeting(null) }, 'Planlegg ei til') : '');
   if (!S.loaded) {
@@ -692,6 +731,18 @@ function renderOverview() {
       h('h3', { text: 'Ingen samling er sett opp enno' }),
       h('span', { class: 'muted', text: 'Legg inn dato, tekst og kven de skal vere hos, så ser alle det her.' }),
       h('button', { class: 'btn primary', onclick: () => openMeeting(null) }, 'Planlegg neste samling')));
+  } else if (next.status === 'postponed') {
+    box.append(h('article', { class: 'next postponed' },
+      h('div', { class: 'row' }, h('span', { class: 'rel warn', text: 'Utsett' }),
+        h('span', { class: 'btns' },
+          h('button', { class: 'btn primary', onclick: () => openMeeting(next, { reschedule: true }) }, 'Set ny dato'),
+          statusBtn(next, 'cancelled', 'Avlys heilt'))),
+      h('div', { class: 'when', text: 'Ny dato er ikkje bestemt' }),
+      h('span', { class: 'muted', text: 'Var sett til ' + fmtLong(next.date) + '. Foreslå ein ny dag i samtalen under, eller trykk «Set ny dato».' }),
+      h('dl', {},
+        next.status_note ? [h('dt', { class: 'label', text: 'Grunn' }), h('dd', { text: next.status_note })] : null,
+        h('dt', { class: 'label', text: 'Les til då' }), h('dd', {}, readingBlock(next)),
+        next.host ? [h('dt', { class: 'label', text: 'Hos' }), h('dd', { text: next.host })] : null)));
   } else {
     box.append(h('article', { class: 'next' },
       h('div', { class: 'row' }, h('span', { class: 'rel', text: relDays(next.date) }),
@@ -702,21 +753,26 @@ function renderOverview() {
       h('dl', {},
         h('dt', { class: 'label', text: 'Les til då' }), h('dd', {}, readingBlock(next)),
         h('dt', { class: 'label', text: 'Hos' }), h('dd', { text: next.host || 'Ikkje bestemt enno' }),
-        next.note ? [h('dt', { class: 'label', text: 'Notat' }), h('dd', { class: 'prose', text: next.note })] : null)));
+        next.note ? [h('dt', { class: 'label', text: 'Notat' }), h('dd', { class: 'prose', text: next.note })] : null),
+      h('div', { class: 'row statusrow' },
+        h('span', { class: 'hint', text: 'Kan de ikkje møtast denne dagen?' }),
+        h('span', { class: 'btns' }, statusBtn(next, 'postponed', 'Utsett'), statusBtn(next, 'cancelled', 'Avlys')))));
   }
   renderRsvp(S.loaded ? next : null);
   renderTalk(S.loaded ? next : null);
   renderCalendar();
-  const later = future.slice(1);
+  const cancelledAhead = S.meetings.filter(m => m.status === 'cancelled' && m.date >= today());
+  const later = [...postponed.slice(1), ...[...future, ...cancelledAhead].sort((a, b) => a.date.localeCompare(b.date))].filter(m => m !== next);
   $('#laterBlock').hidden = !later.length;
   $('#laterList').replaceChildren(...later.map(meetingRow));
 
+  const held = past.filter(isActive);
   const map = readingMap();
   const read = Object.values(map).reduce((s, b) => s + Object.values(b).filter(c => c.state === 'read').length, 0);
-  const hosts = new Set(past.map(m => (m.host || '').trim().toLowerCase()).filter(Boolean)).size;
-  const first = past.length ? past[past.length - 1].date : null;
+  const hosts = new Set(held.map(m => (m.host || '').trim().toLowerCase()).filter(Boolean)).size;
+  const first = held.length ? held[held.length - 1].date : null;
   $('#stats').replaceChildren(
-    stat(past.length, 'samlingar' + (first ? ' sidan ' + fmtShort(first) : '')),
+    stat(held.length, 'samlingar' + (first ? ' sidan ' + fmtShort(first) : '')),
     stat(read, 'kapittel lese'),
     stat(hosts, 'ulike vertar'));
 
@@ -734,9 +790,11 @@ function renderOverview() {
 
 function meetingRow(m) {
   const r = ref(m);
-  return h('div', { class: 'item' },
+  const label = STATUS_LABEL[m.status];
+  return h('div', { class: 'item' + (label ? ' off ' + m.status : '') },
     h('span', { class: 'd', text: fmtShort(m.date) }),
     h('div', { class: 'main' },
+      label ? h('span', { class: 'badge ' + m.status, text: label + (m.status === 'postponed' ? ', ny dato ikkje bestemt' : '') + (m.status_note ? ': ' + m.status_note : '') }) : null,
       r ? h('a', { class: 'verse', href: bibleUrl(m.book, m.ch_from), target: '_blank', rel: 'noopener', title: 'Les på bibel.no', text: r }) : null,
       m.topic ? h('span', { class: r ? '' : 'verse', text: m.topic }) : null,
       !r && !m.topic ? h('span', { class: 'muted', text: 'Ingen tekst registrert' }) : null,
@@ -841,7 +899,7 @@ function renderReading() {
 
   const { past } = split();
   const tally = {};
-  for (const m of past) {
+  for (const m of past.filter(isActive)) {
     const k = (m.host || '').trim(); if (!k) continue;
     (tally[k.toLowerCase()] ||= { name: k, n: 0, last: m.date }).n++;
   }
@@ -1019,10 +1077,13 @@ $('#memberForm').addEventListener('submit', async e => {
 });
 
 let editing = null;
-function openMeeting(m) {
+function openMeeting(m, opts = {}) {
   editing = m;
-  $('#meetingTitle').textContent = m ? 'Endre samling' : 'Ny samling';
-  $('#mDate').value = m ? m.date : '';
+  $('#meetingTitle').textContent = opts.reschedule ? 'Set ny dato' : m ? 'Endre samling' : 'Ny samling';
+  $('#mDate').value = m && !opts.reschedule ? m.date : '';
+  $('#mStatus').value = opts.reschedule ? 'planned' : (m && m.status) || 'planned';
+  $('#mStatusNote').value = m && !opts.reschedule ? (m.status_note || '') : '';
+  syncStatusNote();
   $('#mTime').value = m && m.time ? m.time.slice(0, 5) : '';
   mBook.value = m && BY[m.book] ? m.book : '';
   syncPassage(m ? m.ch_from : 1, m ? (m.ch_to || m.ch_from) : 1);
@@ -1055,9 +1116,21 @@ $('#meetingForm').addEventListener('submit', async e => {
     verses: hasBook ? ($('#mVerses').value.trim() || null) : null,
     topic: $('#mTopic').value.trim() || null, host: $('#mHost').value.trim() || null, note: $('#mNote').value.trim() || null,
   };
+  const status = $('#mStatus').value;
+  // Statusfelta finst først etter oppdatering-5.sql; send dei berre når dei trengst eller finst
+  if (status !== 'planned' || S.meetings.some(x => 'status' in x)) {
+    row.status = status;
+    row.status_note = status === 'planned' ? null : ($('#mStatusNote').value.trim() || null);
+  }
   if (editing) row.id = editing.id;
-  if (await run(store.saveMeeting(row))) { $('#meetingDlg').close(); reload(); }
+  const wasPostponed = editing && editing.status === 'postponed' && status === 'planned';
+  if (await run(store.saveMeeting(row))) {
+    if (wasPostponed) await run(store.addComment({ meeting_id: editing.id, body: `Ny dato for den utsette samlinga: ${fmtLong(row.date)}.` }));
+    $('#meetingDlg').close(); reload();
+  }
 });
+function syncStatusNote() { $('#mStatusNoteWrap').hidden = $('#mStatus').value === 'planned'; }
+$('#mStatus').addEventListener('change', syncStatusNote);
 
 /* ---------- Om gruppa ---------- */
 $('#editInfo').addEventListener('click', () => {

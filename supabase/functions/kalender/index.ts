@@ -29,7 +29,7 @@ const pad = (n: number) => String(n).padStart(2, '0');
 const wall = (d: Date) => `${d.getUTCFullYear()}${pad(d.getUTCMonth() + 1)}${pad(d.getUTCDate())}T${pad(d.getUTCHours())}${pad(d.getUTCMinutes())}00`;
 
 type Meeting = { id: string; date: string; time: string | null; book: string | null; ch_from: number | null; ch_to: number | null;
-  verses: string | null; topic: string | null; host: string | null; note: string | null };
+  verses: string | null; topic: string | null; host: string | null; note: string | null; status?: string | null };
 
 function ref(m: Meeting) {
   if (!m.book || !BOOKS[m.book]) return '';
@@ -71,7 +71,10 @@ Deno.serve(async (req) => {
       const d = new Date(`${m.date}T00:00:00Z`), e = new Date(d.getTime() + 864e5);
       lines.push(`DTSTART;VALUE=DATE:${wall(d).slice(0, 8)}`, `DTEND;VALUE=DATE:${wall(e).slice(0, 8)}`);
     }
-    lines.push('SUMMARY:' + text(name + (r ? ': ' + r : '')));
+    // Utsett/avlyst: står att i kalenderen som avlyst, utan påminning
+    const off = m.status === 'cancelled' ? 'AVLYST' : m.status === 'postponed' ? 'UTSETT' : '';
+    if (off) lines.push('STATUS:CANCELLED');
+    lines.push('SUMMARY:' + text((off ? off + ': ' : '') + name + (r ? ': ' + r : '')));
     const url = m.book && m.ch_from ? `https://bibel.no/nettbibelen/les/nn-2011/${m.book}/${m.book}.${m.ch_from}` : '';
     const desc = [r && 'Les: ' + r, url && 'På nett: ' + url, m.topic, host && 'Hos ' + host, m.note].filter(Boolean).join('\n');
     if (desc) lines.push('DESCRIPTION:' + text(desc));
@@ -80,7 +83,7 @@ Deno.serve(async (req) => {
       lines.push('LOCATION:' + text(host + addr));
     }
     // Påminning dagen før (kl. 18 dagen før for samlingar utan klokkeslett)
-    lines.push('BEGIN:VALARM', 'ACTION:DISPLAY', 'DESCRIPTION:' + text('I morgon: bibelgruppe' + (host ? ' hos ' + host : '') + (r ? '. Les ' + r : '')),
+    if (!off) lines.push('BEGIN:VALARM', 'ACTION:DISPLAY', 'DESCRIPTION:' + text('I morgon: bibelgruppe' + (host ? ' hos ' + host : '') + (r ? '. Les ' + r : '')),
       'TRIGGER:' + (m.time ? '-P1D' : '-PT6H'), 'END:VALARM');
     lines.push('END:VEVENT');
   }

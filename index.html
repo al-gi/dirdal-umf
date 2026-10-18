@@ -229,6 +229,16 @@
       <label class="f">Dato<input type="date" id="mDate" required></label>
       <label class="f">Klokka<input type="time" id="mTime"></label>
     </div>
+    <div class="grid2">
+      <label class="f">Status
+        <select id="mStatus">
+          <option value="planned">Planlagt</option>
+          <option value="postponed">Utsett, ny dato ikkje bestemt</option>
+          <option value="cancelled">Avlyst</option>
+        </select>
+      </label>
+      <label class="f" id="mStatusNoteWrap" hidden>Grunn (valfritt)<input id="mStatusNote" maxlength="200" placeholder="t.d. sjukdom, fotballkamp"></label>
+    </div>
     <fieldset class="passage">
       <legend>Tekst vi les</legend>
       <div class="row"><span class="hint" id="suggestHint"></span><button type="button" class="btn link" id="suggestBtn">Hald fram der vi slapp</button></div>
