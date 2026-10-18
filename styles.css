@@ -99,6 +99,9 @@ a.btn{text-decoration:none}
 
 .member .bio{margin-top:.5rem;max-width:65ch;white-space:pre-wrap;font-family:var(--display);font-size:.98rem;line-height:1.6}
 
+.block.mine{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:1rem 1.25rem;gap:.35rem}
+#mineText{font-family:var(--display);font-size:1.1rem}
+
 /* Leseplan */
 label.inline{display:inline-flex;align-items:center;gap:.5rem;font-size:.85rem;color:var(--muted)}
 label.inline select{width:auto;padding:.3rem .5rem}

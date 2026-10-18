@@ -91,7 +91,7 @@
           </label>
         </div>
         <ol class="plan" id="planList"></ol>
-        <p class="hint">Kryss av det du har lese. Avkryssinga blir berre lagra på denne eininga.</p>
+        <p class="hint" id="planHint"></p>
       </div>
       <div class="block" id="rsvpBlock" hidden>
         <div class="row">
@@ -160,6 +160,11 @@
     </section>
 
     <section class="pane" id="pane-lesing" hidden>
+      <div class="block mine" id="mineBlock" hidden>
+        <span class="label">Di eiga lesing</span>
+        <p id="mineText"></p>
+        <p class="hint">Berre du kan sjå dette. Kryss av i leseplanen på oversikta.</p>
+      </div>
       <div class="block">
         <div class="row"><span class="label">Gjennom Bibelen</span><span class="muted" id="bibleProgressText"></span></div>
         <div class="bar"><span id="bibleProgress"></span></div>
