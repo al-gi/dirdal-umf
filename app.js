@@ -45,7 +45,7 @@ function supabaseStore() {
     async setPassword(password) { ok(await sb.auth.updateUser({ password })); },
     async signOut() { await sb.auth.signOut(); },
     async loadAll() {
-      const [m, t, p, i, mb, r, w, at, cm, pv, vs, pr] = await Promise.all([
+      const [m, t, p, i, mb, r, w, at, cm, pv, vs] = await Promise.all([
         sb.from('meetings').select('*'),
         sb.from('threads').select('*').order('last_at', { ascending: false }),
         sb.from('profiles').select('id,name').order('name'),
@@ -57,18 +57,14 @@ function supabaseStore() {
         sb.from('meeting_comments').select('*').order('created_at'),
         sb.from('proposal_votes').select('*'),
         sb.from('verses').select('*').order('created_at'),
-        sb.from('personal_reading').select('item'), // tilgangsreglane gir berre eigne rader
       ]);
       // Tabellar frå oppdatering-2/3.sql: manglar dei, går resten likevel
       const soft = x => (x.error ? [] : x.data);
       return { meetings: ok(m), threads: ok(t), profiles: ok(p), info: ok(i), members: ok(mb), readings: soft(r), wiki: soft(w),
-        attendance: soft(at), comments: soft(cm), votes: soft(pv), verses: soft(vs), mine: pr.error ? null : pr.data.map(x => x.item),
+        attendance: soft(at), comments: soft(cm), votes: soft(pv), verses: soft(vs),
         needsUpdate: [r, w].some(x => x.error) ? 'oppdatering-2.sql' : [at, cm, pv].some(x => x.error) ? 'oppdatering-3.sql' : vs.error ? 'oppdatering-4.sql'
-          : (m.data && m.data.length && !('status' in m.data[0])) ? 'oppdatering-5.sql'
-          : pr.error ? 'oppdatering-6.sql' : null };
+          : (m.data && m.data.length && !('status' in m.data[0])) ? 'oppdatering-5.sql' : null };
     },
-    async addMine(item) { ok(await sb.from('personal_reading').insert({ item })); },
-    async deleteMine(items) { if (items.length) ok(await sb.from('personal_reading').delete().in('item', items)); },
     async addVerse(row) { ok(await sb.from('verses').insert(row)); },
     async deleteVerse(id) { ok(await sb.from('verses').delete().eq('id', id)); },
     async setAttendance(meetingId, status) {
@@ -146,9 +142,7 @@ function demoStore() {
     async signIn() {}, async signUp() {}, async reset() {}, async setPassword() {},
     async signOut() { try { localStorage.removeItem(KEY); } catch {} location.reload(); },
     async loadAll() { return JSON.parse(JSON.stringify({ meetings: db.meetings, threads: [...db.threads].sort((a, b) => b.last_at.localeCompare(a.last_at)), profiles: db.profiles, info: db.info, members: [...(db.members || [])].sort((a, b) => a.sort - b.sort), readings: db.readings || [], wiki: [...(db.wiki || [])].sort((a, b) => b.updated_at.localeCompare(a.updated_at)),
-      attendance: db.attendance || [], comments: db.comments || [], votes: db.votes || [], verses: db.verses || [], mine: db.mine || [] })); },
-    async addMine(item) { (db.mine ||= []).includes(item) || db.mine.push(item); save(); },
-    async deleteMine(items) { db.mine = (db.mine || []).filter(x => !items.includes(x)); save(); },
+      attendance: db.attendance || [], comments: db.comments || [], votes: db.votes || [], verses: db.verses || [] })); },
     async addVerse(row) { (db.verses ||= []).push({ ...row, id: uid(), added_by: 'demo', created_at: ts() }); save(); },
     async deleteVerse(id) { db.verses = (db.verses || []).filter(v => v.id !== id); save(); },
     async setAttendance(meetingId, status) {
@@ -205,7 +199,7 @@ const store = DEMO ? demoStore() : supabaseStore();
 /* =====================================================================
    Tilstand og hjelparar
    ===================================================================== */
-const S = { session: null, meetings: [], threads: [], profiles: [], members: [], readings: [], wiki: [], attendance: [], comments: [], votes: [], verses: [], mine: null, info: null, replies: [], openThread: null, loaded: false, selBook: null,
+const S = { session: null, meetings: [], threads: [], profiles: [], members: [], readings: [], wiki: [], attendance: [], comments: [], votes: [], verses: [], info: null, replies: [], openThread: null, loaded: false, selBook: null,
   wikiQuery: '', wikiTag: null, openWiki: null };
 const meId = () => S.session && S.session.user.id;
 
@@ -338,7 +332,7 @@ function render() {
   if (!signedIn) return;
   $('#profileBtn').textContent = pname(meId());
   renderOverview(); renderReading(); renderForum(); renderMembers(); renderWiki();
-  renderDaily(); renderVerseBank(); renderSoon(); renderMine();
+  renderDaily(); renderVerseBank(); renderSoon();
 }
 
 /** Tekst med klikkbare lenkjer, utan å tolke HTML. */
@@ -431,114 +425,6 @@ $('#wikiForm').addEventListener('submit', async e => {
   if (editingWiki) row.id = editingWiki.id;
   if (await run(store.saveWiki(row))) { $('#wikiDlg').close(); reload(); }
 });
-
-/* ---------- Leseplan: del leksa over dagane fram til samlinga ---------- */
-const lsGet = k => { try { return localStorage.getItem(k); } catch { return null; } };
-const lsSet = (k, v) => { try { v == null ? localStorage.removeItem(k) : localStorage.setItem(k, v); } catch {} };
-
-/** Alle vers i leksa som [kapittel, vers], i rekkjefølgje. */
-function lessonVerses(m) {
-  const b = BY[m.book], counts = (window.VERSE_COUNTS || {})[m.book];
-  if (!b || !m.ch_from || !counts) return [];
-  const to = Math.min(b.ch, Math.max(m.ch_from, m.ch_to || m.ch_from));
-  // Eit eksplisitt versområde («1–21») gjeld når leksa er eitt kapittel
-  const range = to === m.ch_from && m.verses && String(m.verses).match(/^\s*(\d+)\s*(?:[–-]\s*(\d+))?\s*$/);
-  const out = [];
-  for (let c = m.ch_from; c <= to; c++) {
-    const n = counts[c - 1] || 0;
-    const lo = range ? Math.max(1, +range[1]) : 1, hi = range ? Math.min(n, +(range[2] || range[1])) : n;
-    for (let v = lo; v <= hi; v++) out.push([c, v]);
-  }
-  return out;
-}
-/** Del versa i `days` bolkar, og flytt skilja til eit kapittelskilje når det er under 4 vers unna. */
-function splitLesson(list, days) {
-  const n = list.length;
-  days = Math.max(1, Math.min(days, n));
-  const starts = [0];
-  for (let i = 1; i < days; i++) {
-    let s = Math.round(i * n / days);
-    for (let d = 0; d <= 3; d++) {
-      if (list[s - d] && list[s - d][1] === 1 && s - d > starts.at(-1)) { s -= d; break; }
-      if (list[s + d] && list[s + d][1] === 1 && s + d < n) { s += d; break; }
-    }
-    if (s > starts.at(-1) && s < n) starts.push(s);
-  }
-  return starts.map((s, i) => [list[s], list[(starts[i + 1] ?? n) - 1]]);
-}
-function fmtPart(book, [c1, v1], [c2, v2]) {
-  const b = BY[book], counts = window.VERSE_COUNTS[book];
-  const whole = v1 === 1 && v2 === counts[c2 - 1];
-  if (c1 === c2) return whole ? `${b.abbr} ${c1}` : `${b.abbr} ${c1},${v1}${v2 > v1 ? '–' + v2 : ''}`;
-  return whole ? `${b.abbr} ${c1}–${c2}` : `${b.abbr} ${c1},${v1}–${c2},${v2}`;
-}
-/* Eiga lesing lagra på brukaren (personal_reading); kvar rad er eit versområde, t.d. 'MAT.4.1-4.18' */
-const partItem = (book, [c1, v1], [c2, v2]) => `${book}.${c1}.${v1}-${c2}.${v2}`;
-function itemVerses(item) {
-  const p = item.match(/^([0-9A-Z]{3})\.(\d+)\.(\d+)-(\d+)\.(\d+)$/);
-  const counts = p && (window.VERSE_COUNTS || {})[p[1]];
-  if (!counts) return [];
-  const [, book, c1, v1, c2, v2] = p.map((x, i) => (i > 1 ? +x : x));
-  const out = [];
-  for (let c = c1; c <= c2; c++) {
-    const lo = c === c1 ? v1 : 1, hi = c === c2 ? v2 : counts[c - 1];
-    for (let v = lo; v <= hi; v++) out.push(`${book}.${c}.${v}`);
-  }
-  return out;
-}
-function myVerseSet() { return new Set((S.mine || []).flatMap(itemVerses)); }
-const partKeys = (book, list, a, z) => list.slice(list.indexOf(a), list.indexOf(z) + 1).map(([c, v]) => `${book}.${c}.${v}`);
-
-function renderMine() {
-  const block = $('#mineBlock');
-  block.hidden = S.mine == null;
-  if (S.mine == null) return;
-  const set = myVerseSet();
-  const byChapter = {};
-  for (const k of set) { const [b, c] = k.split('.'); byChapter[b + '.' + c] = (byChapter[b + '.' + c] || 0) + 1; }
-  const whole = Object.entries(byChapter).filter(([k, n]) => { const [b, c] = k.split('.'); return n >= (window.VERSE_COUNTS[b] || [])[c - 1]; }).length;
-  $('#mineText').textContent = set.size
-    ? `Du har kryssa av ${set.size} vers i leseplanen, ${whole} heile kapittel.`
-    : 'Du har ikkje kryssa av noko i leseplanen enno.';
-}
-
-function renderPlan(next) {
-  const list = next && isActive(next) ? lessonVerses(next) : [];
-  $('#planBlock').hidden = !list.length;
-  if (!list.length) return;
-  const until = Math.round((asDate(next.date) - asDate(today())) / 864e5);
-  const sel = $('#planDays');
-  const saved = +lsGet('dumf-plan-days');
-  sel.value = String(Math.min(7, Math.max(1, saved || until || 1)));
-  const parts = splitLesson(list, +sel.value);
-  const onUser = S.mine != null; // null = tabellen manglar (før oppdatering-6.sql): fall tilbake til denne eininga
-  const set = onUser ? myVerseSet() : null;
-  $('#planHint').textContent = onUser
-    ? 'Kryss av det du har lese. Det blir lagra på brukaren din, og berre du kan sjå det.'
-    : 'Kryss av det du har lese. Avkryssinga blir berre lagra på denne eininga.';
-  $('#planList').replaceChildren(...parts.map(([a, z], i) => {
-    const key = `dumf-plan-${next.id}-${fmtPart(next.book, a, z)}`;
-    const keys = partKeys(next.book, list, a, z);
-    const day = localDate(new Date(asDate(today()).getTime() + i * 864e5));
-    const label = i === 0 ? 'I dag' : i === 1 ? 'I morgon' : cap(fmt(day, { weekday: 'long' }));
-    const done = onUser ? keys.every(k => set.has(k)) : lsGet(key) === '1';
-    const cb = h('input', { type: 'checkbox', checked: done, 'aria-label': 'Lese' });
-    cb.addEventListener('change', async () => {
-      li.classList.toggle('done', cb.checked);
-      if (!onUser) { lsSet(key, cb.checked ? '1' : null); return; }
-      const ok = cb.checked
-        ? await run(store.addMine(partItem(next.book, a, z)))
-        : await run(store.deleteMine((S.mine || []).filter(it => itemVerses(it).some(k => keys.includes(k)))));
-      if (ok) reload(); else { cb.checked = !cb.checked; li.classList.toggle('done', cb.checked); }
-    });
-    const li = h('li', { class: done ? 'done' : '' },
-      h('label', { class: 'plan-day' }, cb, h('span', { class: 'plan-when', text: label })),
-      h('a', { href: bibleUrl(next.book, a[0]), target: '_blank', rel: 'noopener', class: 'plan-ref', text: fmtPart(next.book, a, z) }),
-      h('span', { class: 'hint', text: `${list.indexOf(z) - list.indexOf(a) + 1} vers` }));
-    return li;
-  }));
-}
-$('#planDays').addEventListener('change', e => { lsSet('dumf-plan-days', e.target.value); renderPlan(nextMeeting()); });
 
 /* ---------- Påmelding ---------- */
 const RSVP = { yes: 'Kjem', maybe: 'Usikker', no: 'Kjem ikkje' };
@@ -875,7 +761,6 @@ function renderOverview() {
         h('span', { class: 'hint', text: 'Kan de ikkje møtast denne dagen?' }),
         h('span', { class: 'btns' }, statusBtn(next, 'postponed', 'Utsett'), statusBtn(next, 'cancelled', 'Avlys')))));
   }
-  renderPlan(S.loaded ? next : null);
   renderRsvp(S.loaded ? next : null);
   renderTalk(S.loaded ? next : null);
   renderCalendar();
@@ -1081,7 +966,7 @@ async function reload() {
   try {
     const d = await store.loadAll();
     Object.assign(S, { meetings: d.meetings || [], threads: d.threads || [], profiles: d.profiles || [], members: d.members || [], readings: d.readings || [], wiki: d.wiki || [],
-      attendance: d.attendance || [], comments: d.comments || [], votes: d.votes || [], verses: d.verses || [], mine: d.mine, info: d.info, loaded: true });
+      attendance: d.attendance || [], comments: d.comments || [], votes: d.votes || [], verses: d.verses || [], info: d.info, loaded: true });
     setStatus(d.needsUpdate ? `Databasen manglar ei oppdatering, så nokre funksjonar kan ikkje lagre noko enno. Den som styrer Supabase må køyre ${d.needsUpdate} i SQL Editor.` : '');
   } catch (err) {
     console.error(err);
