@@ -99,6 +99,19 @@ a.btn{text-decoration:none}
 
 .member .bio{margin-top:.5rem;max-width:65ch;white-space:pre-wrap;font-family:var(--display);font-size:.98rem;line-height:1.6}
 
+/* Leseplan */
+label.inline{display:inline-flex;align-items:center;gap:.5rem;font-size:.85rem;color:var(--muted)}
+label.inline select{width:auto;padding:.3rem .5rem}
+.plan{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;border-top:1px solid var(--line)}
+.plan li{display:grid;grid-template-columns:9rem 1fr auto;gap:.5rem 1rem;align-items:center;padding:.6rem 0;border-bottom:1px solid var(--line)}
+.plan-day{display:flex;align-items:center;gap:.6rem;cursor:pointer}
+.plan-day input{width:1.1rem;height:1.1rem;accent-color:var(--accent)}
+.plan-when{font-weight:500}
+.plan-ref{font-family:var(--display);font-size:1.08rem;color:var(--verse);text-decoration:none}
+.plan-ref:hover{text-decoration:underline}
+.plan li.done .plan-ref,.plan li.done .plan-when{opacity:.5;text-decoration:line-through}
+@media (max-width:440px){.plan li{grid-template-columns:1fr auto}.plan-ref{grid-column:1 / -1;order:3}}
+
 /* Utsett og avlyst */
 .rel.warn{background:var(--verse);color:var(--surface)}
 .next.postponed{border:1.5px dashed var(--verse)}

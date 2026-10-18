@@ -206,7 +206,10 @@ const meId = () => S.session && S.session.user.id;
 function localDate(d) { return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
 const today = () => localDate(new Date());
 const asDate = s => new Date(s + 'T12:00:00');
-const fmt = (s, o) => { try { return new Intl.DateTimeFormat('nn-NO', o).format(asDate(s)); } catch { return s; } };
+// Nettlesarar gir ofte bokmålsnamn på vekedagar sjølv med nn-NO
+const nnDays = s => s.replace(/mandag/gi, m => m[0] === 'M' ? 'Måndag' : 'måndag').replace(/tirsdag/gi, m => m[0] === 'T' ? 'Tysdag' : 'tysdag')
+  .replace(/lørdag/gi, m => m[0] === 'L' ? 'Laurdag' : 'laurdag');
+const fmt = (s, o) => { try { return nnDays(new Intl.DateTimeFormat('nn-NO', o).format(asDate(s))); } catch { return s; } };
 const fmtLong = s => fmt(s, { weekday: 'long', day: 'numeric', month: 'long' });
 const fmtShort = s => fmt(s, { day: 'numeric', month: 'short', year: 'numeric' });
 const fmtStamp = t => { try { return new Intl.DateTimeFormat('nn-NO', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }).format(new Date(t)); } catch { return ''; } };
@@ -422,6 +425,71 @@ $('#wikiForm').addEventListener('submit', async e => {
   if (editingWiki) row.id = editingWiki.id;
   if (await run(store.saveWiki(row))) { $('#wikiDlg').close(); reload(); }
 });
+
+/* ---------- Leseplan: del leksa over dagane fram til samlinga ---------- */
+const lsGet = k => { try { return localStorage.getItem(k); } catch { return null; } };
+const lsSet = (k, v) => { try { v == null ? localStorage.removeItem(k) : localStorage.setItem(k, v); } catch {} };
+
+/** Alle vers i leksa som [kapittel, vers], i rekkjefølgje. */
+function lessonVerses(m) {
+  const b = BY[m.book], counts = (window.VERSE_COUNTS || {})[m.book];
+  if (!b || !m.ch_from || !counts) return [];
+  const to = Math.min(b.ch, Math.max(m.ch_from, m.ch_to || m.ch_from));
+  // Eit eksplisitt versområde («1–21») gjeld når leksa er eitt kapittel
+  const range = to === m.ch_from && m.verses && String(m.verses).match(/^\s*(\d+)\s*(?:[–-]\s*(\d+))?\s*$/);
+  const out = [];
+  for (let c = m.ch_from; c <= to; c++) {
+    const n = counts[c - 1] || 0;
+    const lo = range ? Math.max(1, +range[1]) : 1, hi = range ? Math.min(n, +(range[2] || range[1])) : n;
+    for (let v = lo; v <= hi; v++) out.push([c, v]);
+  }
+  return out;
+}
+/** Del versa i `days` bolkar, og flytt skilja til eit kapittelskilje når det er under 4 vers unna. */
+function splitLesson(list, days) {
+  const n = list.length;
+  days = Math.max(1, Math.min(days, n));
+  const starts = [0];
+  for (let i = 1; i < days; i++) {
+    let s = Math.round(i * n / days);
+    for (let d = 0; d <= 3; d++) {
+      if (list[s - d] && list[s - d][1] === 1 && s - d > starts.at(-1)) { s -= d; break; }
+      if (list[s + d] && list[s + d][1] === 1 && s + d < n) { s += d; break; }
+    }
+    if (s > starts.at(-1) && s < n) starts.push(s);
+  }
+  return starts.map((s, i) => [list[s], list[(starts[i + 1] ?? n) - 1]]);
+}
+function fmtPart(book, [c1, v1], [c2, v2]) {
+  const b = BY[book], counts = window.VERSE_COUNTS[book];
+  const whole = v1 === 1 && v2 === counts[c2 - 1];
+  if (c1 === c2) return whole ? `${b.abbr} ${c1}` : `${b.abbr} ${c1},${v1}${v2 > v1 ? '–' + v2 : ''}`;
+  return whole ? `${b.abbr} ${c1}–${c2}` : `${b.abbr} ${c1},${v1}–${c2},${v2}`;
+}
+function renderPlan(next) {
+  const list = next && isActive(next) ? lessonVerses(next) : [];
+  $('#planBlock').hidden = !list.length;
+  if (!list.length) return;
+  const until = Math.round((asDate(next.date) - asDate(today())) / 864e5);
+  const sel = $('#planDays');
+  const saved = +lsGet('dumf-plan-days');
+  sel.value = String(Math.min(7, Math.max(1, saved || until || 1)));
+  const parts = splitLesson(list, +sel.value);
+  $('#planList').replaceChildren(...parts.map(([a, z], i) => {
+    const key = `dumf-plan-${next.id}-${fmtPart(next.book, a, z)}`;
+    const day = localDate(new Date(asDate(today()).getTime() + i * 864e5));
+    const label = i === 0 ? 'I dag' : i === 1 ? 'I morgon' : cap(fmt(day, { weekday: 'long' }));
+    const done = lsGet(key) === '1';
+    const cb = h('input', { type: 'checkbox', checked: done, 'aria-label': 'Lese' });
+    cb.addEventListener('change', () => { lsSet(key, cb.checked ? '1' : null); li.classList.toggle('done', cb.checked); });
+    const li = h('li', { class: done ? 'done' : '' },
+      h('label', { class: 'plan-day' }, cb, h('span', { class: 'plan-when', text: label })),
+      h('a', { href: bibleUrl(next.book, a[0]), target: '_blank', rel: 'noopener', class: 'plan-ref', text: fmtPart(next.book, a, z) }),
+      h('span', { class: 'hint', text: `${list.indexOf(z) - list.indexOf(a) + 1} vers` }));
+    return li;
+  }));
+}
+$('#planDays').addEventListener('change', e => { lsSet('dumf-plan-days', e.target.value); renderPlan(nextMeeting()); });
 
 /* ---------- Påmelding ---------- */
 const RSVP = { yes: 'Kjem', maybe: 'Usikker', no: 'Kjem ikkje' };
@@ -758,6 +826,7 @@ function renderOverview() {
         h('span', { class: 'hint', text: 'Kan de ikkje møtast denne dagen?' }),
         h('span', { class: 'btns' }, statusBtn(next, 'postponed', 'Utsett'), statusBtn(next, 'cancelled', 'Avlys')))));
   }
+  renderPlan(S.loaded ? next : null);
   renderRsvp(S.loaded ? next : null);
   renderTalk(S.loaded ? next : null);
   renderCalendar();
