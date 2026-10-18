@@ -99,6 +99,14 @@ a.btn{text-decoration:none}
 
 .member .bio{margin-top:.5rem;max-width:65ch;white-space:pre-wrap;font-family:var(--display);font-size:.98rem;line-height:1.6}
 
+/* Lenkjer til bibel.no */
+a.reading,a.verse{text-decoration:none}
+a.reading:hover,a.verse:hover{text-decoration:underline;text-underline-offset:3px}
+.biblelinks{display:flex;flex-wrap:wrap;gap:.35rem .9rem;margin-top:.35rem}
+.biblelink{font-size:.85rem;color:var(--accent);text-decoration:none;font-weight:500}
+.biblelink:hover{text-decoration:underline}
+.bookdetail > .biblelink{align-self:flex-start}
+
 /* Påmelding og samtale */
 .rsvp{display:flex;flex-direction:column;gap:.35rem;font-size:.92rem}
 .rsvp-row{display:grid;grid-template-columns:8.5rem 1fr;gap:.75rem;align-items:baseline}

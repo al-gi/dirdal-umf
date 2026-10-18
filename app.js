@@ -227,6 +227,21 @@ function ref(m, long) {
   return s;
 }
 
+/* Nettbibelen hos Bibelselskapet (bibel.no) brukar same bokkodar som bible.js */
+const BIBLE_VERSIONS = { 'nn-2011': 'Nynorsk 2011', 'nb-2024': 'Bokmål 2024' };
+function bibleVersion() {
+  try { const v = localStorage.getItem('dumf-bibel'); return BIBLE_VERSIONS[v] ? v : 'nn-2011'; } catch { return 'nn-2011'; }
+}
+const bibleUrl = (book, ch) => `https://bibel.no/nettbibelen/les/${bibleVersion()}/${book}/${book}.${ch || 1}`;
+function chapterLinks(m) {
+  const b = BY[m.book];
+  if (!b || !m.ch_from) return [];
+  const to = Math.min(b.ch, Math.max(m.ch_from, m.ch_to || m.ch_from));
+  const out = [];
+  for (let c = m.ch_from; c <= to; c++) out.push(h('a', { class: 'biblelink', href: bibleUrl(b.id, c), target: '_blank', rel: 'noopener' }, `Les ${b.abbr} ${c} ↗`));
+  return out;
+}
+
 function split() {
   const t = today();
   const sorted = [...S.meetings].sort((a, b) => (a.date + (a.time || '')).localeCompare(b.date + (b.time || '')));
@@ -500,7 +515,7 @@ function icsEvent(m) {
     lines.push(`DTSTART;VALUE=DATE:${icsLocal(d).slice(0, 8)}`, `DTEND;VALUE=DATE:${icsLocal(e).slice(0, 8)}`);
   }
   lines.push('SUMMARY:' + icsText(groupName + (r ? ': ' + r : '')));
-  const desc = [r && 'Les: ' + r, m.topic, m.host && 'Hos ' + m.host, m.note].filter(Boolean).join('\n');
+  const desc = [r && 'Les: ' + r, r && 'På nett: ' + bibleUrl(m.book, m.ch_from), m.topic, m.host && 'Hos ' + m.host, m.note].filter(Boolean).join('\n');
   if (desc) lines.push('DESCRIPTION:' + icsText(desc));
   if (m.host) lines.push('LOCATION:' + icsText(member && member.address ? `${m.host}, ${fullAddress(member)}` : m.host));
   lines.push('END:VEVENT');
@@ -567,8 +582,10 @@ function stat(n, label) { return h('div', { class: 'stat' }, h('span', { class: 
 
 function readingBlock(m) {
   const r = ref(m, true);
+  const links = chapterLinks(m);
   return [
-    r ? h('span', { class: 'reading', text: r }) : null,
+    r ? h('a', { class: 'reading', href: bibleUrl(m.book, m.ch_from), target: '_blank', rel: 'noopener', title: 'Les på bibel.no', text: r }) : null,
+    links.length ? h('span', { class: 'biblelinks' }, links) : null,
     m.topic ? h('span', { class: r ? 'sub' : 'reading', text: m.topic }) : null,
     !r && !m.topic ? h('span', { class: 'muted', text: 'Ikkje bestemt enno' }) : null,
   ];
@@ -631,7 +648,7 @@ function meetingRow(m) {
   return h('div', { class: 'item' },
     h('span', { class: 'd', text: fmtShort(m.date) }),
     h('div', { class: 'main' },
-      r ? h('span', { class: 'verse', text: r }) : null,
+      r ? h('a', { class: 'verse', href: bibleUrl(m.book, m.ch_from), target: '_blank', rel: 'noopener', title: 'Les på bibel.no', text: r }) : null,
       m.topic ? h('span', { class: r ? '' : 'verse', text: m.topic }) : null,
       !r && !m.topic ? h('span', { class: 'muted', text: 'Ingen tekst registrert' }) : null,
       m.host ? h('span', { class: 'muted', text: 'Hos ' + m.host }) : null,
@@ -721,6 +738,7 @@ function renderReading() {
     detail.replaceChildren(...[
       h('div', { class: 'row' }, h('h2', { text: sel.name }), h('span', { class: 'muted', text: `${s.read} av ${sel.ch} kapittel lese` })),
       h('div', { class: 'cells' }, cells),
+      h('a', { class: 'biblelink', href: bibleUrl(sel.id, firstUnread), target: '_blank', rel: 'noopener' }, `Les ${sel.name} ${firstUnread} på bibel.no ↗`),
       h('span', { class: 'hint', text: 'Trykk på eit kapittel for å merkje det som lese, eller trykk igjen for å fjerne merket.' }),
       register,
       rangeRows.length ? h('div', { class: 'block' }, h('span', { class: 'label', text: 'Registrert utan samling' }),
@@ -966,7 +984,8 @@ $('#infoForm').addEventListener('submit', async e => {
 });
 
 /* ---------- Profil ---------- */
-$('#profileBtn').addEventListener('click', () => { $('#pName').value = pname(meId()); $('#profileDlg').showModal(); });
+$('#profileBtn').addEventListener('click', () => { $('#pName').value = pname(meId()); $('#pBible').value = bibleVersion(); $('#profileDlg').showModal(); });
+$('#pBible').addEventListener('change', e => { try { localStorage.setItem('dumf-bibel', e.target.value); } catch {} render(); });
 $('#pCancel').addEventListener('click', () => $('#profileDlg').close());
 $('#logoutBtn').addEventListener('click', async () => { $('#profileDlg').close(); await store.signOut(); S.session = null; render(); });
 $('#profileForm').addEventListener('submit', async e => {

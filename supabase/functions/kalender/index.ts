@@ -72,7 +72,8 @@ Deno.serve(async (req) => {
       lines.push(`DTSTART;VALUE=DATE:${wall(d).slice(0, 8)}`, `DTEND;VALUE=DATE:${wall(e).slice(0, 8)}`);
     }
     lines.push('SUMMARY:' + text(name + (r ? ': ' + r : '')));
-    const desc = [r && 'Les: ' + r, m.topic, host && 'Hos ' + host, m.note].filter(Boolean).join('\n');
+    const url = m.book && m.ch_from ? `https://bibel.no/nettbibelen/les/nn-2011/${m.book}/${m.book}.${m.ch_from}` : '';
+    const desc = [r && 'Les: ' + r, url && 'På nett: ' + url, m.topic, host && 'Hos ' + host, m.note].filter(Boolean).join('\n');
     if (desc) lines.push('DESCRIPTION:' + text(desc));
     if (host) {
       const addr = mem?.address ? `, ${mem.address}, ${[mem.postcode, mem.place].filter(Boolean).join(' ')}` : '';
