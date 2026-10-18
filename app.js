@@ -45,7 +45,7 @@ function supabaseStore() {
     async setPassword(password) { ok(await sb.auth.updateUser({ password })); },
     async signOut() { await sb.auth.signOut(); },
     async loadAll() {
-      const [m, t, p, i, mb, r, w, at, cm, pv] = await Promise.all([
+      const [m, t, p, i, mb, r, w, at, cm, pv, vs] = await Promise.all([
         sb.from('meetings').select('*'),
         sb.from('threads').select('*').order('last_at', { ascending: false }),
         sb.from('profiles').select('id,name').order('name'),
@@ -56,13 +56,16 @@ function supabaseStore() {
         sb.from('attendance').select('*'),
         sb.from('meeting_comments').select('*').order('created_at'),
         sb.from('proposal_votes').select('*'),
+        sb.from('verses').select('*').order('created_at'),
       ]);
       // Tabellar frå oppdatering-2/3.sql: manglar dei, går resten likevel
       const soft = x => (x.error ? [] : x.data);
       return { meetings: ok(m), threads: ok(t), profiles: ok(p), info: ok(i), members: ok(mb), readings: soft(r), wiki: soft(w),
-        attendance: soft(at), comments: soft(cm), votes: soft(pv),
-        needsUpdate: [r, w].some(x => x.error) ? 'oppdatering-2.sql' : [at, cm, pv].some(x => x.error) ? 'oppdatering-3.sql' : null };
+        attendance: soft(at), comments: soft(cm), votes: soft(pv), verses: soft(vs),
+        needsUpdate: [r, w].some(x => x.error) ? 'oppdatering-2.sql' : [at, cm, pv].some(x => x.error) ? 'oppdatering-3.sql' : vs.error ? 'oppdatering-4.sql' : null };
     },
+    async addVerse(row) { ok(await sb.from('verses').insert(row)); },
+    async deleteVerse(id) { ok(await sb.from('verses').delete().eq('id', id)); },
     async setAttendance(meetingId, status) {
       const uid = (await this.session()).user.id;
       if (!status) ok(await sb.from('attendance').delete().eq('meeting_id', meetingId).eq('user_id', uid));
@@ -138,7 +141,9 @@ function demoStore() {
     async signIn() {}, async signUp() {}, async reset() {}, async setPassword() {},
     async signOut() { try { localStorage.removeItem(KEY); } catch {} location.reload(); },
     async loadAll() { return JSON.parse(JSON.stringify({ meetings: db.meetings, threads: [...db.threads].sort((a, b) => b.last_at.localeCompare(a.last_at)), profiles: db.profiles, info: db.info, members: [...(db.members || [])].sort((a, b) => a.sort - b.sort), readings: db.readings || [], wiki: [...(db.wiki || [])].sort((a, b) => b.updated_at.localeCompare(a.updated_at)),
-      attendance: db.attendance || [], comments: db.comments || [], votes: db.votes || [] })); },
+      attendance: db.attendance || [], comments: db.comments || [], votes: db.votes || [], verses: db.verses || [] })); },
+    async addVerse(row) { (db.verses ||= []).push({ ...row, id: uid(), added_by: 'demo', created_at: ts() }); save(); },
+    async deleteVerse(id) { db.verses = (db.verses || []).filter(v => v.id !== id); save(); },
     async setAttendance(meetingId, status) {
       db.attendance = (db.attendance || []).filter(a => !(a.meeting_id === meetingId && a.user_id === 'demo'));
       if (status) db.attendance.push({ meeting_id: meetingId, user_id: 'demo', status });
@@ -193,7 +198,7 @@ const store = DEMO ? demoStore() : supabaseStore();
 /* =====================================================================
    Tilstand og hjelparar
    ===================================================================== */
-const S = { session: null, meetings: [], threads: [], profiles: [], members: [], readings: [], wiki: [], attendance: [], comments: [], votes: [], info: null, replies: [], openThread: null, loaded: false, selBook: null,
+const S = { session: null, meetings: [], threads: [], profiles: [], members: [], readings: [], wiki: [], attendance: [], comments: [], votes: [], verses: [], info: null, replies: [], openThread: null, loaded: false, selBook: null,
   wikiQuery: '', wikiTag: null, openWiki: null };
 const meId = () => S.session && S.session.user.id;
 
@@ -312,6 +317,7 @@ function render() {
   if (!signedIn) return;
   $('#profileBtn').textContent = pname(meId());
   renderOverview(); renderReading(); renderForum(); renderMembers(); renderWiki();
+  renderDaily(); renderVerseBank(); renderSoon();
 }
 
 /** Tekst med klikkbare lenkjer, utan å tolke HTML. */
@@ -518,6 +524,9 @@ function icsEvent(m) {
   const desc = [r && 'Les: ' + r, r && 'På nett: ' + bibleUrl(m.book, m.ch_from), m.topic, m.host && 'Hos ' + m.host, m.note].filter(Boolean).join('\n');
   if (desc) lines.push('DESCRIPTION:' + icsText(desc));
   if (m.host) lines.push('LOCATION:' + icsText(member && member.address ? `${m.host}, ${fullAddress(member)}` : m.host));
+  // Påminning dagen før (kl. 18 dagen før for samlingar utan klokkeslett)
+  lines.push('BEGIN:VALARM', 'ACTION:DISPLAY', 'DESCRIPTION:' + icsText('I morgon: bibelgruppe' + (m.host ? ' hos ' + m.host : '') + (r ? '. Les ' + r : '')),
+    'TRIGGER:' + (m.time ? '-P1D' : '-PT6H'), 'END:VALARM');
   lines.push('END:VEVENT');
   return lines;
 }
@@ -548,6 +557,86 @@ $('#calCopy').addEventListener('click', async () => {
   try { await navigator.clipboard.writeText(url); $('#calMsg').textContent = 'Lenkja er kopiert.'; }
   catch { $('#calMsg').textContent = url; }
 });
+
+/* ---------- Dagens vers og versbanken ---------- */
+const bankVerse = v => ({ ...v, ch_from: v.chapter, ch_to: v.chapter });
+function dailyVerse() {
+  const bank = S.verses.map(bankVerse);
+  const pool = bank.length >= 10 ? bank : [...bank, ...window.DAILY_VERSES];
+  const day = Math.floor(asDate(today()).getTime() / 864e5);
+  return pool[day % pool.length];
+}
+function renderDaily() {
+  const v = dailyVerse();
+  const box = $('#dailyVerse');
+  if (!v) { box.replaceChildren(); return; }
+  const r = ref(v, true);
+  box.replaceChildren(h('figure', { class: 'daily' },
+    v.body ? h('blockquote', { text: '«' + v.body.trim() + '»' }) : null,
+    h('figcaption', {},
+      h('a', { class: 'reading', href: bibleUrl(v.book, v.ch_from), target: '_blank', rel: 'noopener', text: r }),
+      v.body ? null : h('span', { class: 'hint', text: 'Trykk for å lese verset på bibel.no.' }),
+      v.added_by ? h('span', { class: 'hint', text: 'Frå versbanken, lagt inn av ' + pname(v.added_by) + (v.comment ? ': ' + v.comment : '') }) : null)));
+}
+function renderVerseBank() {
+  $('#verseBankLabel').textContent = `Versbanken (${S.verses.length})`;
+  const list = $('#verseList');
+  if (!S.verses.length) { list.replaceChildren(h('p', { class: 'muted', text: 'Ingen vers enno. Legg inn eit vers du likar, så dukkar det opp som dagens vers ein dag.' })); return; }
+  list.replaceChildren(...[...S.verses].reverse().map(v => {
+    const bv = bankVerse(v);
+    return h('div', { class: 'item' },
+      h('span', { class: 'd', text: pname(v.added_by) }),
+      h('div', { class: 'main' },
+        h('a', { class: 'verse', href: bibleUrl(v.book, v.chapter), target: '_blank', rel: 'noopener', text: ref(bv) }),
+        v.body ? h('span', { text: v.body }) : null,
+        v.comment ? h('span', { class: 'note', text: v.comment }) : null),
+      v.added_by === meId() ? delBtn(() => run(store.deleteVerse(v.id)).then(reload)) : h('span'));
+  }));
+}
+const vBook = $('#vBook'), vChapter = $('#vChapter');
+for (const [t, label] of [['GT', 'Det gamle testamentet'], ['NT', 'Det nye testamentet']]) {
+  vBook.append(h('optgroup', { label }, BOOKS.filter(b => b.t === t).map(b => h('option', { value: b.id, text: b.name }))));
+}
+function syncVerseForm() {
+  const b = BY[vBook.value];
+  const keep = +vChapter.value || 1;
+  vChapter.replaceChildren(...Array.from({ length: b.ch }, (_, i) => h('option', { value: i + 1, text: i + 1 })));
+  vChapter.value = String(Math.min(keep, b.ch));
+  const v = { book: b.id, ch_from: +vChapter.value, ch_to: +vChapter.value, verses: $('#vVerses').value.trim() };
+  $('#vPreview').textContent = ref(v, true);
+  $('#vOpen').href = bibleUrl(b.id, v.ch_from);
+}
+[vBook, vChapter].forEach(el => el.addEventListener('change', syncVerseForm));
+$('#vVerses').addEventListener('input', syncVerseForm);
+function openVerse() {
+  $('#verseForm').reset(); vBook.value = 'JHN'; vChapter.replaceChildren(); syncVerseForm();
+  $('#verseDlg').showModal();
+}
+$('#addVerse').addEventListener('click', openVerse);
+$('#addVerseTop').addEventListener('click', openVerse);
+$('#vCancel').addEventListener('click', () => $('#verseDlg').close());
+$('#verseForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const row = { book: vBook.value, chapter: +vChapter.value, verses: $('#vVerses').value.trim(), body: $('#vBody').value.trim(), comment: $('#vComment').value.trim() || null };
+  if (await run(store.addVerse(row))) { $('#verseDlg').close(); reload(); }
+});
+
+/* ---------- Påminning på sida når samlinga er i dag eller i morgon ---------- */
+function renderSoon() {
+  const next = S.loaded && split().future[0];
+  const el = $('#soonBanner');
+  const n = next ? Math.round((asDate(next.date) - asDate(today())) / 864e5) : 99;
+  el.hidden = n > 1;
+  if (n > 1) return;
+  const when = (n === 0 ? 'I dag' : 'I morgon') + (next.time ? ' kl. ' + next.time.slice(0, 5).replace(':', '.') : '');
+  const r = ref(next, true);
+  const mine = S.attendance.find(a => a.meeting_id === next.id && a.user_id === meId());
+  el.replaceChildren(
+    h('b', { text: when + ': samling' + (next.host ? ' hos ' + next.host : '') + '.' }),
+    ...[r ? h('span', {}, 'Vi les ', h('a', { href: bibleUrl(next.book, next.ch_from), target: '_blank', rel: 'noopener', text: r }), '.') : null,
+      mine ? null : h('button', { type: 'button', class: 'btn small', onclick: () => { showTab('oversikt'); $('#rsvpBlock').scrollIntoView({ block: 'center' }); } }, 'Svar om du kjem'),
+    ].filter(Boolean));
+}
 
 /* ---------- Anna info ---------- */
 $('#editNotice').addEventListener('click', () => { $('#nText').value = (S.info && S.info.notice) || ''; $('#noticeDlg').showModal(); });
@@ -816,7 +905,7 @@ async function reload() {
   try {
     const d = await store.loadAll();
     Object.assign(S, { meetings: d.meetings || [], threads: d.threads || [], profiles: d.profiles || [], members: d.members || [], readings: d.readings || [], wiki: d.wiki || [],
-      attendance: d.attendance || [], comments: d.comments || [], votes: d.votes || [], info: d.info, loaded: true });
+      attendance: d.attendance || [], comments: d.comments || [], votes: d.votes || [], verses: d.verses || [], info: d.info, loaded: true });
     setStatus(d.needsUpdate ? `Databasen manglar ei oppdatering, så nokre funksjonar kan ikkje lagre noko enno. Den som styrer Supabase må køyre ${d.needsUpdate} i SQL Editor.` : '');
   } catch (err) {
     console.error(err);

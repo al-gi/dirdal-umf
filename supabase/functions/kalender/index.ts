@@ -79,6 +79,9 @@ Deno.serve(async (req) => {
       const addr = mem?.address ? `, ${mem.address}, ${[mem.postcode, mem.place].filter(Boolean).join(' ')}` : '';
       lines.push('LOCATION:' + text(host + addr));
     }
+    // Påminning dagen før (kl. 18 dagen før for samlingar utan klokkeslett)
+    lines.push('BEGIN:VALARM', 'ACTION:DISPLAY', 'DESCRIPTION:' + text('I morgon: bibelgruppe' + (host ? ' hos ' + host : '') + (r ? '. Les ' + r : '')),
+      'TRIGGER:' + (m.time ? '-P1D' : '-PT6H'), 'END:VALARM');
     lines.push('END:VEVENT');
   }
   lines.push('END:VCALENDAR');

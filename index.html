@@ -62,6 +62,7 @@
 
   <!-- APPEN -->
   <div id="app" hidden>
+    <div id="soonBanner" class="soon" role="status" hidden></div>
     <nav class="tabs" role="tablist">
       <button role="tab" data-tab="oversikt" aria-selected="true">Oversikt</button>
       <button role="tab" data-tab="lesing" aria-selected="false">Lesing</button>
@@ -71,6 +72,10 @@
     </nav>
 
     <section class="pane" id="pane-oversikt">
+      <div class="block">
+        <div class="row"><span class="label">Dagens vers</span><button class="btn link" id="addVerseTop">Legg til eit vers du likar</button></div>
+        <div id="dailyVerse"></div>
+      </div>
       <div class="block">
         <div class="row"><span class="label">Neste samling</span><span id="nextActions"></span></div>
         <div id="nextBox"></div>
@@ -154,6 +159,11 @@
         <div id="bookGrid" class="bookgrid"></div>
         <p class="hint">Trykk på ei bok for å sjå kapitla.</p>
         <div id="bookDetail" class="bookdetail" hidden></div>
+      </div>
+      <div class="block">
+        <div class="row"><span class="label" id="verseBankLabel">Versbanken</span><button class="btn" id="addVerse">Legg til vers</button></div>
+        <p class="hint">Vers de likar. Dagens vers på oversikta blir henta herifrå, eitt nytt kvar dag.</p>
+        <div class="list" id="verseList"></div>
       </div>
       <div class="block">
         <span class="label">Kven vi har vore hos</span>
@@ -290,6 +300,21 @@
   </form>
 </dialog>
 
+<dialog id="verseDlg">
+  <form class="stack" id="verseForm">
+    <h2>Legg til vers</h2>
+    <div class="grid3">
+      <label class="f">Bok<select id="vBook" required></select></label>
+      <label class="f">Kapittel<select id="vChapter"></select></label>
+      <label class="f">Vers<input id="vVerses" maxlength="20" placeholder="t.d. 16 eller 1–3" required></label>
+    </div>
+    <div class="preview verse" id="vPreview"></div>
+    <label class="f">Verseteksten<textarea id="vBody" rows="4" maxlength="2000" placeholder="Skriv av verset frå bibelen din, eller kopier frå bibel.no"></textarea></label>
+    <label class="f">Kvifor du likar det (valfritt)<input id="vComment" maxlength="1000"></label>
+    <div class="row"><a class="biblelink" id="vOpen" target="_blank" rel="noopener">Opne på bibel.no ↗</a><span><button type="button" class="btn" id="vCancel">Avbryt</button> <button class="btn primary">Lagre</button></span></div>
+  </form>
+</dialog>
+
 <dialog id="noticeDlg">
   <form class="stack" id="noticeForm">
     <h2>Anna info</h2>
@@ -314,6 +339,7 @@
 
 <script src="config.js"></script>
 <script src="bible.js"></script>
+<script src="verses.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script src="app.js"></script>
 </body>
