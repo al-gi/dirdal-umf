@@ -21,6 +21,7 @@ og gå til http://localhost:8000. Så lenge `config.js` er tom, køyrer sida i *
 1. Opprett ein gratis konto på https://supabase.com og lag eit nytt prosjekt (region: Stockholm eller Frankfurt).
 2. Opne **SQL Editor**, lim inn heile `schema.sql`, byt ut `'byt-meg'` med gruppekoden de vil bruke, og trykk **Run**. Køyr deretter `oppdatering-2.sql` (lesing utan samling, wiki, «Anna info», medlemstekst) og `oppdatering-3.sql` (påmelding, samtale/forslag om ny dag, kalender) på same måte.
    - Kalenderabonnement: **Edge Functions → Deploy a new function → Via Editor**, kall funksjonen `kalender`, lim inn `supabase/functions/kalender/index.ts` og trykk Deploy. Opne funksjonen etterpå, gå til **Details** og slå av **Verify JWT**, og lagre.
+   - Fornamnsinnlogging for dei med e-postbrukar: lag funksjonen `namn-login` på same måte frå `supabase/functions/namn-login/index.ts`, og slå av **Verify JWT**.
 3. Legg inn medlemslista: køyr den private fila `medlemmar.sql` (ligg utanfor repoet, i `dirdal-umf-privat`) i SQL Editor på same måte. Adresser og telefonnummer skal **aldri** ligge i dette repoet, sidan det er offentleg; i databasen er dei berre synlege for innlogga medlemer.
 4. Gå til **Project Settings → API** og kopier *Project URL* og *anon public*-nøkkelen inn i `config.js`.
 5. Gå til **Authentication → URL Configuration**:
