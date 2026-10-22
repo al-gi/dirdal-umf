@@ -99,14 +99,6 @@ a.btn{text-decoration:none}
 
 .member .bio{margin-top:.5rem;max-width:65ch;white-space:pre-wrap;font-family:var(--display);font-size:.98rem;line-height:1.6}
 
-/* Besøk (administrator) */
-.tablewrap{overflow-x:auto}
-table.visits{width:100%;border-collapse:collapse;font-size:.92rem}
-table.visits th{text-align:left;font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:600;padding:.4rem .6rem;border-bottom:1px solid var(--line);white-space:nowrap}
-table.visits td{padding:.55rem .6rem;border-bottom:1px solid var(--line);white-space:nowrap}
-table.visits td.num{text-align:right;font-variant-numeric:tabular-nums}
-table.visits tr.never td{color:var(--muted)}
-
 /* Utsett og avlyst */
 .rel.warn{background:var(--verse);color:var(--surface)}
 .next.postponed{border:1.5px dashed var(--verse)}
