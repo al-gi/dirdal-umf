@@ -38,6 +38,19 @@ function supabaseStore() {
     async session() { return ok(await sb.auth.getSession()).session; },
     onAuth(fn) { sb.auth.onAuthStateChange((ev, s) => fn(ev, s)); },
     async signIn(email, password) { ok(await sb.auth.signInWithPassword({ email, password })); },
+    // Fornamn + eige passord for dei som har e-postbrukar (Supabase-funksjonen namn-login)
+    async signInByName(name, password) {
+      let d = {};
+      try {
+        const res = await fetch(`${cfg.supabaseUrl}/functions/v1/namn-login`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json', apikey: cfg.supabaseAnonKey },
+          body: JSON.stringify({ name, password }),
+        });
+        d = await res.json();
+      } catch { d = {}; }
+      if (d.session) ok(await sb.auth.setSession(d.session));
+      return d;
+    },
     async signUp(email, password, name, code) {
       return ok(await sb.auth.signUp({ email, password, options: { data: { name, invite_code: code }, emailRedirectTo: here } }));
     },
@@ -147,7 +160,7 @@ function demoStore() {
   return {
     async session() { return { user: { id: 'demo' } }; },
     onAuth() {},
-    async signIn() {}, async signUp() {}, async reset() {}, async setPassword() {},
+    async signIn() {}, async signUp() {}, async signInByName() { return { match: false }; }, async reset() {}, async setPassword() {},
     async signOut() { try { localStorage.removeItem(KEY); } catch {} location.reload(); },
     async loadAll() { return JSON.parse(JSON.stringify({ meetings: db.meetings, threads: [...db.threads].sort((a, b) => b.last_at.localeCompare(a.last_at)), profiles: db.profiles, info: db.info, members: [...(db.members || [])].sort((a, b) => a.sort - b.sort), readings: db.readings || [], wiki: [...(db.wiki || [])].sort((a, b) => b.updated_at.localeCompare(a.updated_at)),
       attendance: db.attendance || [], comments: db.comments || [], votes: db.votes || [], verses: db.verses || [] })); },
@@ -1283,7 +1296,13 @@ $('#nameForm').addEventListener('submit', e => {
   authTry(e.target, async () => {
     try { await store.signIn(email, pass); return; }
     catch (err) { if (!/invalid login/i.test((err && err.message) || '')) throw err; }
-    // Ukjent namn eller feil passord: prøv å opprette brukaren
+    // Har personen brukar med e-post? Då loggar dei inn med fornamnet og sitt eige passord.
+    const byName = await store.signInByName(name, pass);
+    if (byName.session) return;
+    if (byName.match) throw new Error(byName.error === 'ambiguous'
+      ? 'Fleire passar til det namnet. Skriv heile namnet, eller logg inn med e-post.'
+      : 'Feil passord. Du har brukar med e-post, så bruk ditt eige passord (eller logg inn med e-post).');
+    // Ukjent namn: opprett brukaren med det felles passordet
     try {
       const d = await store.signUp(email, pass, displayName(name), pass);
       if (d && !d.session) $('#authMsg').textContent = 'Brukaren vart laga, men må stadfestast. Be den som styrer sida slå av e-poststadfesting i Supabase.';
