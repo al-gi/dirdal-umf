@@ -1186,8 +1186,8 @@ $('#replyForm').addEventListener('submit', async e => {
    Innlogging
    ===================================================================== */
 function authView(name) {
-  ['login', 'signup', 'forgot', 'newPass'].forEach(n => $('#' + n + 'Form').hidden = n !== name);
-  document.querySelectorAll('[data-auth]').forEach(b => b.setAttribute('aria-selected', String(b.dataset.auth === name)));
+  ['name', 'login', 'forgot', 'newPass'].forEach(n => $('#' + n + 'Form').hidden = n !== name);
+  document.querySelectorAll('[data-auth]').forEach(b => b.setAttribute('aria-selected', String(b.dataset.auth === name || (name === 'forgot' && b.dataset.auth === 'login'))));
   $('#authMsg').textContent = '';
 }
 document.querySelectorAll('[data-auth]').forEach(b => b.addEventListener('click', () => authView(b.dataset.auth)));
@@ -1198,9 +1198,7 @@ function authError(err) {
   const m = (err && err.message) || '';
   if (/invalid login/i.test(m)) return 'Feil e-post eller passord.';
   if (/not confirmed/i.test(m)) return 'Du må stadfeste e-posten din først. Sjå etter ein e-post frå oss.';
-  if (/database error|gruppekode/i.test(m)) return 'Feil gruppekode. Spør nokon i gruppa om koden.';
-  if (/already registered/i.test(m)) return 'Denne e-posten har allereie ein brukar. Logg inn i staden.';
-  if (/password/i.test(m)) return 'Passordet må ha minst 8 teikn.';
+  if (/password/i.test(m)) return 'Passordet er for kort.';
   return m || 'Noko gjekk gale. Prøv igjen.';
 }
 async function authTry(form, fn) {
@@ -1209,11 +1207,33 @@ async function authTry(form, fn) {
   btn.disabled = false;
 }
 $('#loginForm').addEventListener('submit', e => { e.preventDefault(); authTry(e.target, () => store.signIn($('#liEmail').value.trim(), $('#liPass').value)); });
-$('#signupForm').addEventListener('submit', e => {
+
+/* Innlogging med fornamn og felles passord.
+   Fornamnet blir ei intern innloggingsadresse (det blir aldri sendt e-post til ho, e-poststadfesting er av i Supabase).
+   Første gong eit namn loggar inn, blir brukaren oppretta; det felles passordet er då òg gruppekoden (sjå schema.sql). */
+function nameToEmail(name) {
+  const slug = name.trim().toLowerCase().replace(/æ/g, 'ae').replace(/ø/g, 'o').replace(/å/g, 'a')
+    .normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+  return slug ? `${slug}@${cfg.loginDomain || 'al-gi.github.io'}` : '';
+}
+const displayName = n => n.trim().replace(/\s+/g, ' ').replace(/(^|[\s-])(\p{L})/gu, (m, a, b) => a + b.toUpperCase());
+$('#nameForm').addEventListener('submit', e => {
   e.preventDefault();
+  const name = $('#nmName').value, pass = $('#nmPass').value;
+  const email = nameToEmail(name);
+  if (!email) { $('#authMsg').textContent = 'Skriv fornamnet ditt.'; return; }
   authTry(e.target, async () => {
-    const d = await store.signUp($('#suEmail').value.trim(), $('#suPass').value, $('#suName').value.trim(), $('#suCode').value.trim());
-    if (d && !d.session) $('#authMsg').textContent = 'Nesten ferdig: sjekk e-posten din og trykk på lenkja for å stadfeste brukaren.';
+    try { await store.signIn(email, pass); return; }
+    catch (err) { if (!/invalid login/i.test((err && err.message) || '')) throw err; }
+    // Ukjent namn eller feil passord: prøv å opprette brukaren
+    try {
+      const d = await store.signUp(email, pass, displayName(name), pass);
+      if (d && !d.session) $('#authMsg').textContent = 'Brukaren vart laga, men må stadfestast. Be den som styrer sida slå av e-poststadfesting i Supabase.';
+    } catch (err) {
+      const m = (err && err.message) || '';
+      if (/already registered|database error|gruppekode|password/i.test(m)) throw new Error('Feil passord. Sjekk at du har skrive det felles passordet rett.');
+      throw err;
+    }
   });
 });
 $('#forgotForm').addEventListener('submit', e => {

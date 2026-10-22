@@ -1,7 +1,7 @@
 # Dirdal Unge Mannsforening – bibelgruppe
 
 Nettsida til bibelgruppa: neste samling, kva vi les, oversikt over alle bøkene i Bibelen med det vi har lese merka av, kven vi har vore hos, eit forum, og medlemsliste med adresser som opnar i Google Maps.
-Kvar person opprettar sin eigen brukar med e-post og passord. Det krev ein **gruppekode**, så ikkje kven som helst kan registrere seg.
+Alle loggar inn med **fornamn og eit felles passord**. Første gong eit namn loggar inn, blir brukaren oppretta. Det felles passordet er det same som gruppekoden i databasen (`private.settings.invite_code`), så berre dei som kan passordet kjem inn. Dei som laga brukar med e-post før, kan framleis logge inn under «Med e-post».
 
 Sida er reine filer (HTML/CSS/JS) som ligg gratis på GitHub Pages. Data og innlogging ligg i Supabase (gratisplan).
 
@@ -35,12 +35,14 @@ Anon-nøkkelen er laga for å liggje offentleg i nettsida. Tilgangen er styrt av
 2. I repoet: **Settings → Pages → Build and deployment → Deploy from a branch**, vel `main` og `/ (root)`.
 3. Etter eitt minutt eller to ligg sida på `https://BRUKARNAMN.github.io/dirdal-umf/`.
 
-### Byte gruppekode seinare
+### Byte det felles passordet / gruppekoden
 Køyr dette i SQL Editor:
 
 ```sql
 update private.settings set invite_code = 'ny-kode' where id = 1;
 ```
+
+Merk: dette gjeld nye brukarar. Brukarar som alt er oppretta, loggar framleis inn med passordet dei hadde då dei vart oppretta.
 
 ## Filer
 | Fil | Innhald |

@@ -7,7 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Literata:ital,opsz,wght@0,7..72,400;0,7..72,600;1,7..72,400&family=Instrument+Sans:wght@400;500;600&display=swap">
-<link rel="stylesheet" href="styles.css?v=20261018b">
+<link rel="stylesheet" href="styles.css?v=20261022a">
 </head>
 <body>
 <div class="wrap">
@@ -29,21 +29,20 @@
   <section id="auth" class="auth" hidden>
     <div class="authcard">
       <nav class="tabs small" role="tablist">
-        <button type="button" data-auth="login" aria-selected="true">Logg inn</button>
-        <button type="button" data-auth="signup" aria-selected="false">Ny brukar</button>
+        <button type="button" data-auth="name" aria-selected="true">Logg inn</button>
+        <button type="button" data-auth="login" aria-selected="false">Med e-post</button>
       </nav>
-      <form class="stack" id="loginForm">
+      <form class="stack" id="nameForm">
+        <label class="f">Fornamn<input id="nmName" autocomplete="username" autocapitalize="words" required maxlength="40" placeholder="t.d. Olav Erik"></label>
+        <label class="f">Passord<input type="password" id="nmPass" autocomplete="current-password" required><span class="hint">Det felles passordet til gruppa.</span></label>
+        <button class="btn primary">Logg inn</button>
+      </form>
+      <form class="stack" id="loginForm" hidden>
+        <p class="hint">For dei som laga brukar med e-post før.</p>
         <label class="f">E-post<input type="email" id="liEmail" autocomplete="email" required></label>
         <label class="f">Passord<input type="password" id="liPass" autocomplete="current-password" required></label>
         <button class="btn primary">Logg inn</button>
         <button type="button" class="btn link" id="forgotBtn">Gløymt passordet?</button>
-      </form>
-      <form class="stack" id="signupForm" hidden>
-        <label class="f">Namnet ditt<input id="suName" autocomplete="name" required maxlength="60"></label>
-        <label class="f">E-post<input type="email" id="suEmail" autocomplete="email" required></label>
-        <label class="f">Passord<input type="password" id="suPass" autocomplete="new-password" minlength="8" required><span class="hint">Minst 8 teikn.</span></label>
-        <label class="f">Gruppekode<input id="suCode" required autocomplete="off"><span class="hint">Få koden frå nokon i gruppa.</span></label>
-        <button class="btn primary">Opprett brukar</button>
       </form>
       <form class="stack" id="forgotForm" hidden>
         <p class="muted">Skriv e-posten din, så får du ei lenkje for å velje nytt passord.</p>
@@ -348,11 +347,11 @@
 </dialog>
 
 <!-- ?v= tvingar nettlesaren til å hente nye filer etter ei oppdatering; aukast ved kvar endring -->
-<script src="config.js?v=20261018b"></script>
-<script src="bible.js?v=20261018b"></script>
-<script src="verses.js?v=20261018b"></script>
+<script src="config.js?v=20261022a"></script>
+<script src="bible.js?v=20261022a"></script>
+<script src="verses.js?v=20261022a"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="app.js?v=20261018b"></script>
+<script src="app.js?v=20261022a"></script>
 <script>
   // Står både innlogging og app skjult etter nokre sekund, har noko gått gale under lasting
   setTimeout(function () {
