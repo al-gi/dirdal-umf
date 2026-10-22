@@ -65,6 +65,14 @@ function supabaseStore() {
         needsUpdate: [r, w].some(x => x.error) ? 'oppdatering-2.sql' : [at, cm, pv].some(x => x.error) ? 'oppdatering-3.sql' : vs.error ? 'oppdatering-4.sql'
           : (m.data && m.data.length && !('status' in m.data[0])) ? 'oppdatering-5.sql' : null };
     },
+    // Besøksteljing (oppdatering-7.sql). Feil her skal aldri stoppe sida.
+    async logVisit() { await sb.rpc('log_visit'); },
+    async isAdmin() {
+      const uid = (await this.session())?.user.id;
+      const { data, error } = await sb.from('admins').select('user_id').eq('user_id', uid).maybeSingle();
+      return !error && !!data;
+    },
+    async visitStats() { return ok(await sb.rpc('visit_stats')); },
     async addVerse(row) { ok(await sb.from('verses').insert(row)); },
     async deleteVerse(id) { ok(await sb.from('verses').delete().eq('id', id)); },
     async setAttendance(meetingId, status) {
@@ -143,6 +151,12 @@ function demoStore() {
     async signOut() { try { localStorage.removeItem(KEY); } catch {} location.reload(); },
     async loadAll() { return JSON.parse(JSON.stringify({ meetings: db.meetings, threads: [...db.threads].sort((a, b) => b.last_at.localeCompare(a.last_at)), profiles: db.profiles, info: db.info, members: [...(db.members || [])].sort((a, b) => a.sort - b.sort), readings: db.readings || [], wiki: [...(db.wiki || [])].sort((a, b) => b.updated_at.localeCompare(a.updated_at)),
       attendance: db.attendance || [], comments: db.comments || [], votes: db.votes || [], verses: db.verses || [] })); },
+    async logVisit() {},
+    async isAdmin() { return true; },
+    async visitStats() {
+      const now = Date.now();
+      return db.profiles.map((p, i) => ({ user_id: p.id, name: p.name + ' (eksempel)', total: 14 - i * 9, last_30: 6 - i * 4, days: 9 - i * 6, last_at: new Date(now - i * 3 * 864e5).toISOString() }));
+    },
     async addVerse(row) { (db.verses ||= []).push({ ...row, id: uid(), added_by: 'demo', created_at: ts() }); save(); },
     async deleteVerse(id) { db.verses = (db.verses || []).filter(v => v.id !== id); save(); },
     async setAttendance(meetingId, status) {
@@ -666,7 +680,37 @@ $('#noticeForm').addEventListener('submit', async e => {
   if (await run(store.saveInfo({ notice: $('#nText').value.trim() || null }))) { $('#noticeDlg').close(); reload(); }
 });
 
+/* ---------- Besøk (berre administrator) ---------- */
+let visitsLoaded = false;
+function relTime(t) {
+  if (!t) return 'Aldri';
+  const days = Math.floor((asDate(today()) - asDate(localDate(new Date(t)))) / 864e5);
+  if (days <= 0) return 'I dag';
+  if (days === 1) return 'I går';
+  if (days < 14) return `${days} dagar sidan`;
+  return fmtShort(localDate(new Date(t)));
+}
+async function loadVisits() {
+  if (!S.isAdmin) return;
+  try { S.visits = await store.visitStats(); visitsLoaded = true; } catch (err) { console.error(err); S.visits = null; }
+  renderVisits();
+}
+function renderVisits() {
+  const block = $('#visitBlock');
+  block.hidden = !S.isAdmin;
+  if (!S.isAdmin) return;
+  const rows = S.visits;
+  if (!rows) { $('#visitTable').replaceChildren(h('p', { class: 'muted', text: visitsLoaded ? 'Fekk ikkje henta besøkstala.' : 'Hentar …' })); return; }
+  $('#visitTable').replaceChildren(h('div', { class: 'tablewrap' }, h('table', { class: 'visits' },
+    h('thead', {}, h('tr', {}, ['Namn', 'Totalt', 'Siste 30 dagar', 'Dagar innom', 'Sist innom'].map(t => h('th', { text: t })))),
+    h('tbody', {}, rows.map(r => h('tr', { class: r.total ? '' : 'never' },
+      h('td', { text: (r.name || 'Utan namn') + (r.user_id === meId() ? ' (deg)' : '') }),
+      h('td', { class: 'num', text: r.total }), h('td', { class: 'num', text: r.last_30 }), h('td', { class: 'num', text: r.days }),
+      h('td', { text: relTime(r.last_at) })))))));
+}
+
 function renderMembers() {
+  renderVisits();
   $('#memberCount').textContent = `Medlemer (${S.members.length})`;
   const all = mapsAllUrl(S.members);
   const a = $('#mapAll'); a.hidden = !all; if (all) a.href = all;
@@ -962,6 +1006,19 @@ async function run(p) {
     return false;
   }
 }
+let visitDone = false;
+async function afterLogin() {
+  if (visitDone || !S.session) return;
+  visitDone = true;
+  // Eitt besøk per fane per dag; ny lasting i same fane tel ikkje
+  const key = 'dumf-visit-' + today();
+  let seen = false;
+  try { seen = sessionStorage.getItem(key) === '1'; sessionStorage.setItem(key, '1'); } catch {}
+  if (!seen) store.logVisit().catch(() => {});
+  try { S.isAdmin = await store.isAdmin(); } catch { S.isAdmin = false; }
+  if (S.isAdmin) loadVisits(); else renderVisits();
+}
+
 async function reload() {
   try {
     const d = await store.loadAll();
@@ -993,6 +1050,7 @@ function showTab(name) {
   document.querySelectorAll('#app nav.tabs button').forEach(b => b.setAttribute('aria-selected', String(b.dataset.tab === name)));
   TABS.forEach(n => $('#pane-' + n).hidden = n !== name);
   try { localStorage.setItem('dumf-tab', name); } catch {}
+  if (name === 'medlemer' && S.isAdmin) loadVisits();
 }
 document.querySelectorAll('#app nav.tabs button').forEach(b => b.addEventListener('click', () => showTab(b.dataset.tab)));
 
@@ -1152,7 +1210,7 @@ $('#infoForm').addEventListener('submit', async e => {
 $('#profileBtn').addEventListener('click', () => { $('#pName').value = pname(meId()); $('#pBible').value = bibleVersion(); $('#profileDlg').showModal(); });
 $('#pBible').addEventListener('change', e => { try { localStorage.setItem('dumf-bibel', e.target.value); } catch {} render(); });
 $('#pCancel').addEventListener('click', () => $('#profileDlg').close());
-$('#logoutBtn').addEventListener('click', async () => { $('#profileDlg').close(); await store.signOut(); S.session = null; render(); });
+$('#logoutBtn').addEventListener('click', async () => { $('#profileDlg').close(); await store.signOut(); S.session = null; S.isAdmin = false; S.visits = null; visitDone = false; render(); });
 $('#profileForm').addEventListener('submit', async e => {
   e.preventDefault();
   if (await run(store.saveName(meId(), $('#pName').value.trim()))) { $('#profileDlg').close(); reload(); }
@@ -1258,11 +1316,11 @@ async function start() {
     if (event === 'PASSWORD_RECOVERY') { S.session = null; render(); authView('newPass'); return; }
     const was = !!S.session;
     S.session = session;
-    if (session && !was) reload(); else render();
+    if (session && !was) { reload(); afterLogin(); } else render();
   });
   try { S.session = await store.session(); } catch (err) { console.error(err); }
   render();
-  if (S.session) reload();
+  if (S.session) { reload(); afterLogin(); }
   store.live(scheduleReload);
 }
 start();
