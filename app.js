@@ -346,7 +346,9 @@ function render() {
   document.title = name;
   $('#groupWhen').textContent = info.when_text || '';
   if (!signedIn) return;
-  $('#profileBtn').textContent = pname(meId());
+  const myName = pname(meId());
+  $('#profileBtn').textContent = (myName.match(/\p{L}+/gu) || []).slice(0, 2).map(w => w[0].toUpperCase()).join('') || '?';
+  $('#profileBtn').title = myName + ' – profil og kalender';
   renderOverview(); renderReading(); renderForum(); renderMembers(); renderWiki();
   renderDaily(); renderVerseBank(); renderSoon();
 }
@@ -463,8 +465,15 @@ function meetingPlaces(m) {
   return [...found.values()];
 }
 function renderMap(next) {
-  const block = $('#mapBlock');
-  const list = next && window.L ? meetingPlaces(next) : [];
+  // Kortet «Til neste samling» under Lesing: teksten med lenkjer til bibel.no, og kartet når teksten har stader
+  const card = $('#textBlock');
+  const hasText = !!(next && BY[next.book] && next.ch_from);
+  card.hidden = !hasText;
+  if (!hasText) return;
+  $('#textWhen').textContent = next.status === 'postponed' ? 'Utsett, ny dato ikkje bestemt' : cap(fmtLong(next.date));
+  $('#textTitle').replaceChildren(h('div', { class: 'texthead' }, readingBlock(next)));
+  const block = $('#mapWrap');
+  const list = window.L ? meetingPlaces(next) : [];
   block.hidden = !list.length;
   if (!list.length) return;
   const key = [next.id, next.book, next.ch_from, next.ch_to, next.verses].join('|');
@@ -508,7 +517,7 @@ function hideOverlappingLabels() {
   }
 }
 function fitPlaceMap() {
-  if (!placeMap || $('#mapBlock').hidden || $('#pane-oversikt').hidden) return;
+  if (!placeMap || $('#mapWrap').hidden || $('#pane-lesing').hidden) return;
   placeMap.invalidateSize();
   const pts = placeLayer.getLayers().map(l => l.getLatLng());
   if (pts.length) placeMap.fitBounds(L.latLngBounds(pts), { padding: [28, 28], maxZoom: 9 });
@@ -836,19 +845,28 @@ function renderOverview() {
         h('dt', { class: 'label', text: 'Les til då' }), h('dd', {}, readingBlock(next)),
         next.host ? [h('dt', { class: 'label', text: 'Hos' }), h('dd', { text: next.host })] : null)));
   } else {
-    box.append(h('article', { class: 'next' },
-      h('div', { class: 'row' }, h('span', { class: 'rel', text: relDays(next.date) }),
-        h('span', { class: 'btns' },
-          h('button', { class: 'btn', onclick: () => downloadIcs([next], 'samling-' + next.date + '.ics') }, 'Legg i kalender'),
-          h('button', { class: 'btn', onclick: () => openMeeting(next) }, 'Endre'))),
-      h('div', { class: 'when', text: cap(fmtLong(next.date)) + (next.time ? ' kl. ' + next.time.slice(0, 5).replace(':', '.') : '') }),
-      h('dl', {},
-        h('dt', { class: 'label', text: 'Les til då' }), h('dd', {}, readingBlock(next)),
-        h('dt', { class: 'label', text: 'Hos' }), h('dd', { text: next.host || 'Ikkje bestemt enno' }),
-        next.note ? [h('dt', { class: 'label', text: 'Notat' }), h('dd', { class: 'prose', text: next.note })] : null),
-      h('div', { class: 'row statusrow' },
+    // Hovudkortet: berre det praktiske – når, kvar, kva vi les
+    const hostMember = next.host && S.members.find(x => x.name.toLowerCase() === next.host.trim().toLowerCase() && x.address);
+    const r = ref(next, true);
+    box.append(h('article', { class: 'next hero' },
+      h('div', { class: 'hero-top' },
+        h('span', { class: 'rel', text: relDays(next.date) }),
+        h('button', { class: 'btn ghost small', onclick: () => openMeeting(next) }, 'Endre')),
+      h('div', { class: 'when', text: cap(fmtLong(next.date)) }),
+      next.time ? h('div', { class: 'time', text: 'kl. ' + next.time.slice(0, 5).replace(':', '.') }) : null,
+      h('div', { class: 'facts' },
+        h('div', { class: 'fact' }, h('span', { class: 'fact-k', text: 'Hos' }),
+          h('span', { class: 'fact-v' }, next.host || 'Ikkje bestemt enno',
+            hostMember ? h('a', { class: 'fact-link', href: mapsUrl(hostMember), target: '_blank', rel: 'noopener', text: fullAddress(hostMember) + ' ↗' }) : null)),
+        h('div', { class: 'fact' }, h('span', { class: 'fact-k', text: 'Les' }),
+          h('span', { class: 'fact-v' }, r || next.topic || 'Ikkje bestemt enno', r && next.topic ? h('span', { class: 'fact-sub', text: next.topic }) : null)),
+        next.note ? h('div', { class: 'fact' }, h('span', { class: 'fact-k', text: 'Notat' }), h('span', { class: 'fact-v prose', text: next.note })) : null),
+      h('div', { class: 'hero-actions' },
+        r ? h('button', { class: 'btn light', onclick: () => { showTab('lesing'); } }, 'Les teksten og sjå kartet') : null,
+        h('button', { class: 'btn ghost', onclick: () => downloadIcs([next], 'samling-' + next.date + '.ics') }, 'Legg i kalender'))),
+      h('div', { class: 'statusrow' },
         h('span', { class: 'hint', text: 'Kan de ikkje møtast denne dagen?' }),
-        h('span', { class: 'btns' }, statusBtn(next, 'postponed', 'Utsett'), statusBtn(next, 'cancelled', 'Avlys')))));
+        h('span', { class: 'btns' }, statusBtn(next, 'postponed', 'Utsett'), statusBtn(next, 'cancelled', 'Avlys'))));
   }
   renderMap(S.loaded ? next : null);
   renderRsvp(S.loaded ? next : null);
@@ -876,9 +894,7 @@ function renderOverview() {
   $('#infoBox').replaceChildren(info.about
     ? h('p', { class: 'prose', text: info.about })
     : h('p', { class: 'muted', text: 'Skriv kort om gruppa, så nye medlemer finn fram.' }));
-  const names = S.members.length ? S.members.map(m => m.name) : S.profiles.map(p => p.name || 'Utan namn');
-  $('#membersLabel').textContent = `Medlemer (${names.length})`;
-  $('#members').replaceChildren(...names.map(n => h('button', { class: 'chip', type: 'button', onclick: () => showTab('medlemer'), text: n })));
+
 }
 
 function meetingRow(m) {
@@ -1094,7 +1110,8 @@ function showTab(name) {
   document.querySelectorAll('#app nav.tabs button').forEach(b => b.setAttribute('aria-selected', String(b.dataset.tab === name)));
   TABS.forEach(n => $('#pane-' + n).hidden = n !== name);
   try { localStorage.setItem('dumf-tab', name); } catch {}
-  if (name === 'oversikt') setTimeout(fitPlaceMap, 0);
+  if (name === 'lesing') setTimeout(fitPlaceMap, 0);
+  window.scrollTo(0, 0);
 }
 document.querySelectorAll('#app nav.tabs button').forEach(b => b.addEventListener('click', () => showTab(b.dataset.tab)));
 

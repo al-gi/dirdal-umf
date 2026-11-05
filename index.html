@@ -2,59 +2,67 @@
 <html lang="nn">
 <head>
 <meta charset="utf-8">
+<meta name="theme-color" content="#1e6b4f">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Dirdal Unge Mannsforening</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Literata:ital,opsz,wght@0,7..72,400;0,7..72,600;1,7..72,400&family=Instrument+Sans:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800&family=Literata:ital,opsz,wght@1,7..72,400&display=swap">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
-<link rel="stylesheet" href="styles.css?v=20261105c">
+<link rel="stylesheet" href="styles.css?v=20261105e">
 </head>
 <body>
-<div class="wrap">
-  <header class="top">
-    <div class="row">
-      <span class="label">Bibelgruppe</span>
-      <span id="userBox" class="meta" hidden>
-        <button class="btn link" id="profileBtn"></button>
-      </span>
+<header class="appbar">
+  <div class="appbar-in">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19.5V5a2 2 0 0 1 2-2h14v15H6a2 2 0 0 0-2 2 2 2 0 0 0 2 2h14"/><path d="M8.5 7.5h7"/></svg></span>
+      <div class="brand-text">
+        <h1 id="groupName">Dirdal Unge Mannsforening</h1>
+        <span class="brand-sub" id="groupWhen"></span>
+      </div>
     </div>
-    <h1 id="groupName">Dirdal Unge Mannsforening</h1>
-    <div class="muted" id="groupWhen"></div>
-  </header>
+    <span id="userBox" hidden><button class="avatar-btn" id="profileBtn" aria-label="Profilen din"></button></span>
+  </div>
+</header>
 
+<div class="wrap">
   <div id="demoBanner" class="notice" hidden>Demomodus: eksempeldata som berre ligg i denne nettlesaren. Fyll inn <code>config.js</code> for å kople til den felles databasen.</div>
   <div id="status" class="notice warn" hidden></div>
 
   <!-- INNLOGGING -->
   <section id="auth" class="auth" hidden>
-    <div class="authcard">
-      <nav class="tabs small" role="tablist">
-        <button type="button" data-auth="name" aria-selected="true">Logg inn</button>
-        <button type="button" data-auth="login" aria-selected="false">Med e-post</button>
+    <div class="authcard card">
+      <div class="auth-head">
+        <span class="brand-mark big" aria-hidden="true"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19.5V5a2 2 0 0 1 2-2h14v15H6a2 2 0 0 0-2 2 2 2 0 0 0 2 2h14"/><path d="M8.5 7.5h7"/></svg></span>
+        <h2>Velkomen</h2>
+        <p class="muted">Logg inn for å sjå neste samling, lesinga og forumet.</p>
+      </div>
+      <nav class="seg" role="tablist">
+        <button type="button" data-auth="name" aria-selected="true">Fornamn</button>
+        <button type="button" data-auth="login" aria-selected="false">E-post</button>
       </nav>
       <form class="stack" id="nameForm">
         <label class="f">Fornamn<input id="nmName" autocomplete="username" autocapitalize="words" required maxlength="40" placeholder="t.d. Olav Erik"></label>
         <label class="f">Passord<input type="password" id="nmPass" autocomplete="current-password" required><span class="hint">Det felles passordet til gruppa. Har du brukar med e-post, brukar du ditt eige passord.</span></label>
-        <button class="btn primary">Logg inn</button>
+        <button class="btn primary wide">Logg inn</button>
       </form>
       <form class="stack" id="loginForm" hidden>
         <p class="hint">For dei som laga brukar med e-post før.</p>
         <label class="f">E-post<input type="email" id="liEmail" autocomplete="email" required></label>
         <label class="f">Passord<input type="password" id="liPass" autocomplete="current-password" required></label>
-        <button class="btn primary">Logg inn</button>
+        <button class="btn primary wide">Logg inn</button>
         <button type="button" class="btn link" id="forgotBtn">Gløymt passordet?</button>
       </form>
       <form class="stack" id="forgotForm" hidden>
         <p class="muted">Skriv e-posten din, så får du ei lenkje for å velje nytt passord.</p>
         <label class="f">E-post<input type="email" id="fgEmail" autocomplete="email" required></label>
-        <button class="btn primary">Send lenkje</button>
+        <button class="btn primary wide">Send lenkje</button>
         <button type="button" class="btn link" id="forgotBack">Tilbake til innlogging</button>
       </form>
       <form class="stack" id="newPassForm" hidden>
         <p>Vel eit nytt passord.</p>
         <label class="f">Nytt passord<input type="password" id="npPass" autocomplete="new-password" minlength="8" required></label>
-        <button class="btn primary">Lagre passord</button>
+        <button class="btn primary wide">Lagre passord</button>
       </form>
       <p id="authMsg" class="hint" role="status"></p>
     </div>
@@ -62,43 +70,34 @@
 
   <!-- APPEN -->
   <div id="app" hidden>
-    <div id="soonBanner" class="soon" role="status" hidden></div>
-    <nav class="tabs" role="tablist">
-      <button role="tab" data-tab="oversikt" aria-selected="true">Oversikt</button>
-      <button role="tab" data-tab="lesing" aria-selected="false">Lesing</button>
-      <button role="tab" data-tab="wiki" aria-selected="false">Wiki</button>
-      <button role="tab" data-tab="forum" aria-selected="false">Forum</button>
-      <button role="tab" data-tab="medlemer" aria-selected="false">Medlemer</button>
+    <nav class="tabs" role="tablist" aria-label="Hovudmeny">
+      <button role="tab" data-tab="oversikt" aria-selected="true"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z"/></svg><span>Oversikt</span></button>
+      <button role="tab" data-tab="lesing" aria-selected="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19.5V5a2 2 0 0 1 2-2h14v15H6a2 2 0 0 0-2 2 2 2 0 0 0 2 2h14"/><path d="M8.5 7.5h7"/></svg><span>Lesing</span></button>
+      <button role="tab" data-tab="wiki" aria-selected="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3H6.5A1.5 1.5 0 0 0 5 4.5v15A1.5 1.5 0 0 0 6.5 21h11a1.5 1.5 0 0 0 1.5-1.5V8z"/><path d="M14 3v5h5M8.5 13h7M8.5 17h4.5"/></svg><span>Wiki</span></button>
+      <button role="tab" data-tab="forum" aria-selected="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.5 11.5a8 8 0 0 1-11.7 7.1L3.5 20l1.4-4.7a8 8 0 1 1 15.6-3.8z"/></svg><span>Forum</span></button>
+      <button role="tab" data-tab="medlemer" aria-selected="false"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0M16 4.6a3.5 3.5 0 0 1 0 6.8M18.5 14.2A6.5 6.5 0 0 1 21.5 20"/></svg><span>Medlemer</span></button>
     </nav>
 
+    <!-- OVERSIKT: berre det praktiske -->
     <section class="pane" id="pane-oversikt">
+      <div id="soonBanner" class="soon" role="status" hidden></div>
       <div class="block">
-        <div class="row"><span class="label">Dagens vers</span><button class="btn link" id="addVerseTop">Legg til eit vers du likar</button></div>
-        <div id="dailyVerse"></div>
-      </div>
-      <div class="block">
-        <div class="row"><span class="label">Neste samling</span><span id="nextActions"></span></div>
+        <div class="sec-head"><h2>Neste samling</h2><span id="nextActions"></span></div>
         <div id="nextBox"></div>
       </div>
-      <div class="block" id="mapBlock" hidden>
-        <div class="row"><span class="label">Stader i teksten</span><span class="hint" id="mapCount"></span></div>
-        <div id="placeMap" class="placemap" role="region" aria-label="Kart over stader i teksten"></div>
-        <div class="chips" id="placeChips"></div>
-        <p class="hint">Trykk på ein stad for å sjå kva vers han er nemnd i. Plasseringane er omtrentlege for somme stader. Stadsdata: <a href="https://www.openbible.info/geo/" target="_blank" rel="noopener">OpenBible.info</a> (CC BY 4.0). Kart: Esri, USGS, NOAA.</p>
-      </div>
-      <div class="block" id="rsvpBlock" hidden>
-        <div class="row">
-          <span class="label">Kjem du?</span>
-          <span class="btns" id="rsvpBtns">
-            <button type="button" class="btn" data-rsvp="yes">Eg kjem</button>
-            <button type="button" class="btn" data-rsvp="maybe">Usikker</button>
-            <button type="button" class="btn" data-rsvp="no">Kjem ikkje</button>
+      <div class="card block" id="rsvpBlock" hidden>
+        <div class="sec-head">
+          <h3>Kjem du?</h3>
+          <span class="seg rsvp-seg" id="rsvpBtns">
+            <button type="button" data-rsvp="yes">Eg kjem</button>
+            <button type="button" data-rsvp="maybe">Usikker</button>
+            <button type="button" data-rsvp="no">Kjem ikkje</button>
           </span>
         </div>
         <div id="rsvpList" class="rsvp"></div>
       </div>
-      <div class="block" id="talkBlock" hidden>
-        <span class="label">Samtale om samlinga</span>
+      <div class="card block" id="talkBlock" hidden>
+        <h3>Samtale om samlinga</h3>
         <div id="talkList"></div>
         <form class="stack" id="talkForm">
           <label class="f">Kommentar<textarea id="talkBody" rows="2" maxlength="4000" placeholder="Til dømes: Eg kan ikkje torsdag, kan vi ta onsdag i staden?"></textarea></label>
@@ -112,90 +111,76 @@
           <div class="row"><span class="hint">Alle i gruppa ser kommentaren.</span><button class="btn primary">Send</button></div>
         </form>
       </div>
-      <div class="block" id="laterBlock" hidden>
-        <span class="label">Seinare</span>
-        <div class="list" id="laterList"></div>
-      </div>
-      <div class="block" id="calBlock">
-        <span class="label">Kalender på telefonen</span>
-        <p class="prose">Abonner på samlingane, så dukkar dei opp i kalenderen din av seg sjølv og blir oppdaterte når nokon endrar dato eller tekst.</p>
-        <div class="btns" id="calBtns">
-          <a class="btn primary" id="calSubscribe">Abonner (iPhone og Mac)</a>
-          <button type="button" class="btn" id="calCopy">Kopier kalenderlenkja</button>
-        </div>
-        <details class="hint">
-          <summary>Android og Google Kalender</summary>
-          <ol>
-            <li>Trykk «Kopier kalenderlenkja».</li>
-            <li>Opne <a href="https://calendar.google.com/calendar/r/settings/addbyurl" target="_blank" rel="noopener">calendar.google.com → Legg til kalender → Frå URL</a> på PC eller i nettlesaren.</li>
-            <li>Lim inn lenkja og trykk «Legg til kalender». Han dukkar opp på telefonen etter ei stund.</li>
-          </ol>
-          <p>Google oppdaterer abonnement nokre gonger i døgnet, så endringar kan ta litt tid. Kalenderlenkja er hemmeleg: ikkje del ho utanfor gruppa.</p>
-        </details>
-        <p class="hint" id="calMsg"></p>
-      </div>
-      <div class="block">
-        <span class="label">Så langt</span>
-        <div class="stats" id="stats"></div>
-      </div>
-      <div class="block">
-        <div class="row"><span class="label">Anna info</span><button class="btn link" id="editNotice">Endre</button></div>
+      <div class="card block">
+        <div class="sec-head"><h3>Beskjedar</h3><button class="btn link" id="editNotice">Endre</button></div>
         <div id="noticeBox"></div>
       </div>
-      <div class="block">
-        <div class="row"><span class="label">Om gruppa</span><button class="btn link" id="editInfo">Endre</button></div>
-        <div id="infoBox"></div>
-        <div class="block">
-          <span class="label" id="membersLabel">Medlemer</span>
-          <div class="chips" id="members"></div>
-        </div>
+      <div class="card block" id="laterBlock" hidden>
+        <h3>Seinare samlingar</h3>
+        <div class="list" id="laterList"></div>
       </div>
     </section>
 
+    <!-- LESING: teksten, kartet og leseoversikta -->
     <section class="pane" id="pane-lesing" hidden>
-      <div class="block">
-        <div class="row"><span class="label">Gjennom Bibelen</span><span class="muted" id="bibleProgressText"></span></div>
-        <div class="bar"><span id="bibleProgress"></span></div>
+      <div class="card block textcard" id="textBlock" hidden>
+        <div class="sec-head"><span class="eyebrow">Til neste samling</span><span class="hint" id="textWhen"></span></div>
+        <div id="textTitle"></div>
+        <div id="mapWrap" class="block" hidden>
+          <div class="sec-head"><h3>Stader i teksten</h3><span class="hint" id="mapCount"></span></div>
+          <div id="placeMap" class="placemap" role="region" aria-label="Kart over stader i teksten"></div>
+          <div class="chips" id="placeChips"></div>
+          <p class="hint">Trykk på ein stad for å sjå kva vers han er nemnd i. Plasseringane er omtrentlege for somme stader. Stadsdata: <a href="https://www.openbible.info/geo/" target="_blank" rel="noopener">OpenBible.info</a> (CC BY 4.0). Kart: Esri, USGS, NOAA.</p>
+        </div>
       </div>
-      <div class="block">
-        <div class="row">
-          <span class="label">Bøkene i Bibelen</span>
+      <div class="card block">
+        <div class="sec-head"><h3>Dagens vers</h3><button class="btn link" id="addVerseTop">Legg til eit vers du likar</button></div>
+        <div id="dailyVerse"></div>
+      </div>
+      <div class="card block">
+        <div class="sec-head"><h3>Gjennom Bibelen</h3><span class="muted" id="bibleProgressText"></span></div>
+        <div class="bar"><span id="bibleProgress"></span></div>
+        <div class="stats" id="stats"></div>
+      </div>
+      <div class="card block">
+        <div class="sec-head">
+          <h3>Bøkene i Bibelen</h3>
           <span class="legend"><i class="tile-dot done"></i> ferdig <i class="tile-dot started"></i> byrja på <i class="tile-dot planned"></i> planlagt</span>
         </div>
         <div id="bookGrid" class="bookgrid"></div>
         <p class="hint">Trykk på ei bok for å sjå kapitla.</p>
         <div id="bookDetail" class="bookdetail" hidden></div>
       </div>
-      <div class="block">
-        <div class="row"><span class="label" id="verseBankLabel">Versbanken</span><button class="btn" id="addVerse">Legg til vers</button></div>
-        <p class="hint">Vers de likar. Dagens vers på oversikta blir henta herifrå, eitt nytt kvar dag.</p>
+      <div class="card block">
+        <div class="sec-head"><h3 id="verseBankLabel">Versbanken</h3><button class="btn" id="addVerse">Legg til vers</button></div>
+        <p class="hint">Vers de likar. Dagens vers blir henta herifrå, eitt nytt kvar dag.</p>
         <div class="list" id="verseList"></div>
       </div>
-      <div class="block">
-        <span class="label">Kven vi har vore hos</span>
+      <div class="card block">
+        <h3>Kven vi har vore hos</h3>
         <div class="chips" id="hostChips"></div>
       </div>
-      <div class="block">
-        <div class="row"><span class="label">Kva vi har lese</span><button class="btn" id="addPast">Legg til tidlegare samling</button></div>
+      <div class="card block">
+        <div class="sec-head"><h3>Kva vi har lese</h3><button class="btn" id="addPast">Legg til tidlegare samling</button></div>
         <div class="list" id="pastList"></div>
       </div>
     </section>
 
     <section class="pane" id="pane-forum" hidden>
       <div id="forumIndex" class="block">
-        <div class="row"><span class="label">Samtalar</span><button class="btn primary" id="newThreadBtn">Start ein samtale</button></div>
-        <form class="stack" id="newThreadForm" hidden>
+        <div class="sec-head"><h2>Forum</h2><button class="btn primary" id="newThreadBtn">Start ein samtale</button></div>
+        <form class="stack card" id="newThreadForm" hidden>
           <label class="f">Tittel<input id="ntTitle" maxlength="200" required placeholder="Til dømes: Kva meiner Jesus med «fødd på nytt»?"></label>
           <label class="f">Innlegg<textarea id="ntBody" required maxlength="10000" placeholder="Skriv tankane eller spørsmålet ditt"></textarea></label>
-          <div class="row"><span></span><span><button type="button" class="btn" id="ntCancel">Avbryt</button> <button class="btn primary">Publiser</button></span></div>
+          <div class="row"><span></span><span class="btns"><button type="button" class="btn" id="ntCancel">Avbryt</button><button class="btn primary">Publiser</button></span></div>
         </form>
-        <div id="threadList"></div>
+        <div id="threadList" class="card list-card"></div>
       </div>
       <div id="threadView" class="block" hidden>
         <div><button class="btn link" id="backToForum">← Alle samtalar</button></div>
         <div id="threadHead"></div>
-        <div id="replyList"></div>
-        <form class="stack" id="replyForm">
+        <div id="replyList" class="card list-card"></div>
+        <form class="stack card" id="replyForm">
           <label class="f">Svar<textarea id="replyBody" required maxlength="10000" placeholder="Skriv eit svar"></textarea></label>
           <div class="row"><span></span><button class="btn primary">Send svar</button></div>
         </form>
@@ -204,10 +189,10 @@
 
     <section class="pane" id="pane-wiki" hidden>
       <div id="wikiIndex" class="block">
-        <div class="row"><span class="label">Wiki</span><button class="btn primary" id="newWiki">Ny side</button></div>
+        <div class="sec-head"><h2>Wiki</h2><button class="btn primary" id="newWiki">Ny side</button></div>
         <input type="search" id="wikiSearch" placeholder="Søk i tittel, tekst og taggar" autocomplete="off">
         <div class="chips" id="wikiTags"></div>
-        <div id="wikiList"></div>
+        <div id="wikiList" class="card list-card"></div>
       </div>
       <div id="wikiView" class="block" hidden>
         <div class="row"><button class="btn link" id="wikiBack">← Alle sider</button><button class="btn" id="wikiEdit">Endre</button></div>
@@ -216,9 +201,13 @@
     </section>
 
     <section class="pane" id="pane-medlemer" hidden>
-      <div class="block">
-        <div class="row">
-          <span class="label" id="memberCount">Medlemer</span>
+      <div class="card block">
+        <div class="sec-head"><h3>Om gruppa</h3><button class="btn link" id="editInfo">Endre</button></div>
+        <div id="infoBox"></div>
+      </div>
+      <div class="card block">
+        <div class="sec-head">
+          <h3 id="memberCount">Medlemer</h3>
           <span class="btns"><a class="btn" id="mapAll" target="_blank" rel="noopener" hidden>Vis alle i Google Maps</a><button class="btn" id="addMember">Legg til medlem</button></span>
         </div>
         <div class="list" id="memberList"></div>
@@ -348,19 +337,37 @@
     </label>
     <div class="row">
       <button type="button" class="btn" id="logoutBtn">Logg ut</button>
-      <span><button type="button" class="btn" id="pCancel">Avbryt</button> <button class="btn primary">Lagre</button></span>
+      <span class="btns"><button type="button" class="btn" id="pCancel">Avbryt</button><button class="btn primary">Lagre</button></span>
     </div>
   </form>
+  <div class="block cal" id="calBlock">
+    <h3>Kalender på telefonen</h3>
+    <p class="hint">Abonner på samlingane, så dukkar dei opp i kalenderen din av seg sjølv og blir oppdaterte når nokon endrar dato eller tekst.</p>
+    <div class="btns" id="calBtns">
+      <a class="btn primary" id="calSubscribe">Abonner (iPhone og Mac)</a>
+      <button type="button" class="btn" id="calCopy">Kopier kalenderlenkja</button>
+    </div>
+    <details class="hint">
+      <summary>Android og Google Kalender</summary>
+      <ol>
+        <li>Trykk «Kopier kalenderlenkja».</li>
+        <li>Opne <a href="https://calendar.google.com/calendar/r/settings/addbyurl" target="_blank" rel="noopener">calendar.google.com → Legg til kalender → Frå URL</a> på PC eller i nettlesaren.</li>
+        <li>Lim inn lenkja og trykk «Legg til kalender». Han dukkar opp på telefonen etter ei stund.</li>
+      </ol>
+      <p>Google oppdaterer abonnement nokre gonger i døgnet, så endringar kan ta litt tid. Kalenderlenkja er hemmeleg: ikkje del ho utanfor gruppa.</p>
+    </details>
+    <p class="hint" id="calMsg"></p>
+  </div>
 </dialog>
 
 <!-- ?v= tvingar nettlesaren til å hente nye filer etter ei oppdatering; aukast ved kvar endring -->
-<script src="config.js?v=20261105c"></script>
-<script src="bible.js?v=20261105c"></script>
-<script src="verses.js?v=20261105c"></script>
-<script src="places.js?v=20261105c"></script>
+<script src="config.js?v=20261105e"></script>
+<script src="bible.js?v=20261105e"></script>
+<script src="verses.js?v=20261105e"></script>
+<script src="places.js?v=20261105e"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="app.js?v=20261105c"></script>
+<script src="app.js?v=20261105e"></script>
 <script>
   // Står både innlogging og app skjult etter nokre sekund, har noko gått gale under lasting
   setTimeout(function () {
