@@ -464,12 +464,18 @@ function meetingPlaces(m) {
   }
   return [...found.values()];
 }
-function renderMap(next) {
-  // Kortet «Til neste samling» under Lesing: teksten med lenkjer til bibel.no, og kartet når teksten har stader
+function renderMap(nextMeetingArg) {
+  // Kortet øvst under Lesing: teksten med lenkjer til bibel.no, og kartet når teksten har stader.
+  // Har ikkje neste samling ein bibeltekst, blir neste samling med tekst brukt, elles den siste de las.
+  const hasText = m => !!(m && BY[m.book] && m.ch_from);
+  const { future, past } = split();
+  let next = hasText(nextMeetingArg) ? nextMeetingArg : future.find(hasText);
+  let label = 'Til neste samling';
+  if (!next) { next = past.filter(isActive).find(hasText); label = 'Sist lese'; }
   const card = $('#textBlock');
-  const hasText = !!(next && BY[next.book] && next.ch_from);
-  card.hidden = !hasText;
-  if (!hasText) return;
+  card.hidden = !S.loaded || !next;
+  if (card.hidden) return;
+  $('#textEyebrow').textContent = label;
   $('#textWhen').textContent = next.status === 'postponed' ? 'Utsett, ny dato ikkje bestemt' : cap(fmtLong(next.date));
   $('#textTitle').replaceChildren(h('div', { class: 'texthead' }, readingBlock(next)));
   const block = $('#mapWrap');
