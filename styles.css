@@ -194,6 +194,10 @@ button.chip:hover{border-color:var(--accent)}
 .mappop{font-family:var(--ui);font-size:.85rem;line-height:1.4}
 .mappop b{font-size:1rem}
 #placeChips .chip{font-size:.85rem;padding:.2rem .7rem}
+.leaflet-marker-icon.pin{background:none;border:0}
+.pin svg{width:26px;height:34px;overflow:visible;filter:drop-shadow(0 2px 2px rgba(0,0,0,.35))}
+.pin svg path{fill:var(--danger);stroke:#fff;stroke-width:2}
+.pin svg circle{fill:#fff;stroke:none}
 .leaflet-tooltip.placelabel{background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:6px;box-shadow:none;font-family:var(--ui);font-size:.75rem;font-weight:600;padding:1px 6px}
 .leaflet-tooltip.placelabel::before{display:none}
 

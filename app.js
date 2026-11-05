@@ -494,14 +494,16 @@ function renderMap(nextMeetingArg) {
     placeLayer = L.layerGroup().addTo(placeMap);
   }
   placeLayer.clearLayers();
-  const color = getComputedStyle(document.documentElement).getPropertyValue('--verse').trim() || '#86651c';
   const b = BY[next.book];
   const fmtRefs = refs => refs.map(([c, v]) => `${b.abbr} ${c},${v}`).join(' · ');
   list.sort((a, b) => b.refs.length - a.refs.length); // dei mest nemnde får namnelapp først
   const markers = list.map(e => {
     const popup = h('div', { class: 'mappop' }, h('b', { text: e.name }), h('div', { text: fmtRefs(e.refs) }));
-    return L.circleMarker([e.lat, e.lon], { radius: 7, color, weight: 2, fillColor: color, fillOpacity: .75 })
-      .bindPopup(popup).bindTooltip(e.name, { permanent: true, direction: 'right', offset: [8, 0], className: 'placelabel' }).addTo(placeLayer);
+    // Tydeleg kartnål: spissen peikar på staden, namnet står til høgre
+    const pin = L.divIcon({ className: 'pin', iconSize: [26, 34], iconAnchor: [13, 33], popupAnchor: [0, -30], tooltipAnchor: [10, -20],
+      html: '<svg viewBox="0 0 26 34" aria-hidden="true"><path d="M13 33s11-11.2 11-19.5A11 11 0 0 0 2 13.5C2 21.8 13 33 13 33z"/><circle cx="13" cy="13.5" r="4.2"/></svg>' });
+    return L.marker([e.lat, e.lon], { icon: pin, title: e.name, keyboard: true })
+      .bindPopup(popup).bindTooltip(e.name, { permanent: true, direction: 'right', className: 'placelabel' }).addTo(placeLayer);
   });
   $('#mapCount').textContent = `${list.length} ${list.length === 1 ? 'stad' : 'stader'} i ${ref(next)}`;
   $('#placeChips').replaceChildren(...list.map((e, i) => h('button', {
