@@ -442,6 +442,79 @@ $('#wikiForm').addEventListener('submit', async e => {
   if (await run(store.saveWiki(row))) { $('#wikiDlg').close(); reload(); }
 });
 
+/* ---------- Kart over stader i teksten (data: places.js, kart: Leaflet + Esri terrengkart utan påskrift) ---------- */
+let placeMap = null, placeLayer = null;
+/** Stader i leksa, kvar med versa dei er nemnde i. Eit versområde («1–21») gjeld når leksa er eitt kapittel. */
+function meetingPlaces(m) {
+  const P = window.BIBLE_PLACES, b = BY[m.book];
+  if (!P || !b || !m.ch_from) return [];
+  const to = Math.min(b.ch, Math.max(m.ch_from, m.ch_to || m.ch_from));
+  const range = to === m.ch_from && m.verses && String(m.verses).match(/^\s*(\d+)\s*(?:[–-]\s*(\d+))?\s*$/);
+  const found = new Map();
+  for (let c = m.ch_from; c <= to; c++) {
+    for (const [pi, v] of P.c[`${m.book}.${c}`] || []) {
+      if (range && (v < +range[1] || v > +(range[2] || range[1]))) continue;
+      const [name, lat, lon] = P.p[pi];
+      const key = name + lat + lon;
+      const e = found.get(key) || { name, lat, lon, refs: [] };
+      e.refs.push([c, v]); found.set(key, e);
+    }
+  }
+  return [...found.values()];
+}
+function renderMap(next) {
+  const block = $('#mapBlock');
+  const list = next && window.L ? meetingPlaces(next) : [];
+  block.hidden = !list.length;
+  if (!list.length) return;
+  const key = [next.id, next.book, next.ch_from, next.ch_to, next.verses].join('|');
+  if (block.dataset.key === key) return;
+  block.dataset.key = key;
+  if (!placeMap) {
+    placeMap = L.map('placeMap', { scrollWheelZoom: false, attributionControl: false });
+    // Terrengkart utan stadnamn (OSM har lokale namn på arabisk/hebraisk); namna våre kjem som etikettar på punkta
+    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Shaded_Relief/MapServer/tile/{z}/{y}/{x}',
+      { maxZoom: 13 }).addTo(placeMap);
+    placeMap.on('zoomend moveend', hideOverlappingLabels);
+    placeLayer = L.layerGroup().addTo(placeMap);
+  }
+  placeLayer.clearLayers();
+  const color = getComputedStyle(document.documentElement).getPropertyValue('--verse').trim() || '#86651c';
+  const b = BY[next.book];
+  const fmtRefs = refs => refs.map(([c, v]) => `${b.abbr} ${c},${v}`).join(' · ');
+  list.sort((a, b) => b.refs.length - a.refs.length); // dei mest nemnde får namnelapp først
+  const markers = list.map(e => {
+    const popup = h('div', { class: 'mappop' }, h('b', { text: e.name }), h('div', { text: fmtRefs(e.refs) }));
+    return L.circleMarker([e.lat, e.lon], { radius: 7, color, weight: 2, fillColor: color, fillOpacity: .75 })
+      .bindPopup(popup).bindTooltip(e.name, { permanent: true, direction: 'right', offset: [8, 0], className: 'placelabel' }).addTo(placeLayer);
+  });
+  $('#mapCount').textContent = `${list.length} ${list.length === 1 ? 'stad' : 'stader'} i ${ref(next)}`;
+  $('#placeChips').replaceChildren(...list.map((e, i) => h('button', {
+    type: 'button', class: 'chip', title: fmtRefs(e.refs),
+    onclick: () => { placeMap.setView([e.lat, e.lon], Math.max(placeMap.getZoom(), 8)); markers[i].openPopup(); },
+  }, e.name)));
+  fitPlaceMap();
+}
+/** Skjul namnelappar som overlappar ein lapp som allereie er vist (dei mest nemnde stadene vinn). */
+function hideOverlappingLabels() {
+  const shown = [];
+  for (const layer of placeLayer.getLayers()) {
+    const el = layer.getTooltip() && layer.getTooltip().getElement();
+    if (!el) continue;
+    el.style.visibility = '';
+    const r = el.getBoundingClientRect();
+    const hit = shown.some(o => r.left < o.right + 2 && r.right > o.left - 2 && r.top < o.bottom + 2 && r.bottom > o.top - 2);
+    if (hit) el.style.visibility = 'hidden'; else shown.push(r);
+  }
+}
+function fitPlaceMap() {
+  if (!placeMap || $('#mapBlock').hidden || $('#pane-oversikt').hidden) return;
+  placeMap.invalidateSize();
+  const pts = placeLayer.getLayers().map(l => l.getLatLng());
+  if (pts.length) placeMap.fitBounds(L.latLngBounds(pts), { padding: [28, 28], maxZoom: 9 });
+  setTimeout(hideOverlappingLabels, 300);
+}
+
 /* ---------- Påmelding ---------- */
 const RSVP = { yes: 'Kjem', maybe: 'Usikker', no: 'Kjem ikkje' };
 function renderRsvp(next) {
@@ -777,6 +850,7 @@ function renderOverview() {
         h('span', { class: 'hint', text: 'Kan de ikkje møtast denne dagen?' }),
         h('span', { class: 'btns' }, statusBtn(next, 'postponed', 'Utsett'), statusBtn(next, 'cancelled', 'Avlys')))));
   }
+  renderMap(S.loaded ? next : null);
   renderRsvp(S.loaded ? next : null);
   renderTalk(S.loaded ? next : null);
   renderCalendar();
@@ -1020,6 +1094,7 @@ function showTab(name) {
   document.querySelectorAll('#app nav.tabs button').forEach(b => b.setAttribute('aria-selected', String(b.dataset.tab === name)));
   TABS.forEach(n => $('#pane-' + n).hidden = n !== name);
   try { localStorage.setItem('dumf-tab', name); } catch {}
+  if (name === 'oversikt') setTimeout(fitPlaceMap, 0);
 }
 document.querySelectorAll('#app nav.tabs button').forEach(b => b.addEventListener('click', () => showTab(b.dataset.tab)));
 

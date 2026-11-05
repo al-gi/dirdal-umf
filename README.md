@@ -52,5 +52,6 @@ Merk: dette gjeld nye brukarar. Brukarar som alt er oppretta, loggar framleis in
 | `styles.css` | Utsjånad (lyst og mørkt tema) |
 | `app.js` | All logikk: innlogging, samlingar, lesekart, forum |
 | `bible.js` | Bøkene i Bibelen med nynorske namn og tal på kapittel |
+| `places.js` | Stader i Bibelen med koordinatar per kapittel (OpenBible.info, CC BY 4.0) til kartet på neste samling |
 | `config.js` | Supabase-adresse og offentleg nøkkel |
 | `schema.sql` | Tabellar, tilgangsreglar og gruppekode |

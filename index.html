@@ -7,7 +7,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Literata:ital,opsz,wght@0,7..72,400;0,7..72,600;1,7..72,400&family=Instrument+Sans:wght@400;500;600&display=swap">
-<link rel="stylesheet" href="styles.css?v=20261022e">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<link rel="stylesheet" href="styles.css?v=20261105c">
 </head>
 <body>
 <div class="wrap">
@@ -78,6 +79,12 @@
       <div class="block">
         <div class="row"><span class="label">Neste samling</span><span id="nextActions"></span></div>
         <div id="nextBox"></div>
+      </div>
+      <div class="block" id="mapBlock" hidden>
+        <div class="row"><span class="label">Stader i teksten</span><span class="hint" id="mapCount"></span></div>
+        <div id="placeMap" class="placemap" role="region" aria-label="Kart over stader i teksten"></div>
+        <div class="chips" id="placeChips"></div>
+        <p class="hint">Trykk på ein stad for å sjå kva vers han er nemnd i. Plasseringane er omtrentlege for somme stader. Stadsdata: <a href="https://www.openbible.info/geo/" target="_blank" rel="noopener">OpenBible.info</a> (CC BY 4.0). Kart: Esri, USGS, NOAA.</p>
       </div>
       <div class="block" id="rsvpBlock" hidden>
         <div class="row">
@@ -347,11 +354,13 @@
 </dialog>
 
 <!-- ?v= tvingar nettlesaren til å hente nye filer etter ei oppdatering; aukast ved kvar endring -->
-<script src="config.js?v=20261022e"></script>
-<script src="bible.js?v=20261022e"></script>
-<script src="verses.js?v=20261022e"></script>
+<script src="config.js?v=20261105c"></script>
+<script src="bible.js?v=20261105c"></script>
+<script src="verses.js?v=20261105c"></script>
+<script src="places.js?v=20261105c"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="app.js?v=20261022e"></script>
+<script src="app.js?v=20261105c"></script>
 <script>
   // Står både innlogging og app skjult etter nokre sekund, har noko gått gale under lasting
   setTimeout(function () {

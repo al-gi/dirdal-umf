@@ -99,6 +99,14 @@ a.btn{text-decoration:none}
 
 .member .bio{margin-top:.5rem;max-width:65ch;white-space:pre-wrap;font-family:var(--display);font-size:.98rem;line-height:1.6}
 
+/* Kart over stader */
+.placemap{height:clamp(240px,45vw,360px);border-radius:var(--r);border:1px solid var(--line);overflow:hidden;background:var(--soft);z-index:0}
+.mappop{font-family:var(--ui);font-size:.85rem;line-height:1.4}
+.mappop b{font-family:var(--display);font-size:1rem}
+#placeChips .chip{font-size:.85rem;padding:.2rem .7rem}
+.leaflet-tooltip.placelabel{background:var(--surface);color:var(--ink);border:1px solid var(--line);box-shadow:none;font-family:var(--ui);font-size:.75rem;font-weight:500;padding:1px 6px}
+.leaflet-tooltip.placelabel::before{display:none}
+
 /* Utsett og avlyst */
 .rel.warn{background:var(--verse);color:var(--surface)}
 .next.postponed{border:1.5px dashed var(--verse)}
