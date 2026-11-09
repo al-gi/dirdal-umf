@@ -4,12 +4,30 @@
 <meta charset="utf-8">
 <meta name="theme-color" content="#1e6b4f">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Dirdal UMF">
 <title>Dirdal Unge Mannsforening</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png" type="image/png" sizes="192x192">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png" sizes="180x180">
+<script>
+  (function () {
+    var modes = ['standalone', 'fullscreen', 'minimal-ui'];
+    var on = false;
+    for (var i = 0; i < modes.length; i++) {
+      if (window.matchMedia('(display-mode: ' + modes[i] + ')').matches) on = true;
+    }
+    if (window.navigator.standalone) on = true;
+    if (on) document.documentElement.classList.add('standalone');
+  })();
+</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800&family=Literata:ital,opsz,wght@1,7..72,400&display=swap">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
-<link rel="stylesheet" href="styles.css?v=20261105g">
+<link rel="stylesheet" href="styles.css?v=20261109a">
 </head>
 <body>
 <header class="appbar">
@@ -28,6 +46,13 @@
 <div class="wrap">
   <div id="demoBanner" class="notice" hidden>Demomodus: eksempeldata som berre ligg i denne nettlesaren. Fyll inn <code>config.js</code> for å kople til den felles databasen.</div>
   <div id="status" class="notice warn" hidden></div>
+  <div id="installBanner" class="install-banner" role="region" aria-label="Installer appen" hidden>
+    <p id="installText"></p>
+    <span class="btns">
+      <button type="button" class="btn primary" id="installBtn" hidden>Installer</button>
+      <button type="button" class="btn link" id="installDismiss">Ikkje no</button>
+    </span>
+  </div>
 
   <!-- INNLOGGING -->
   <section id="auth" class="auth" hidden>
@@ -361,13 +386,14 @@
 </dialog>
 
 <!-- ?v= tvingar nettlesaren til å hente nye filer etter ei oppdatering; aukast ved kvar endring -->
-<script src="config.js?v=20261105g"></script>
-<script src="bible.js?v=20261105g"></script>
-<script src="verses.js?v=20261105g"></script>
-<script src="places.js?v=20261105g"></script>
+<script src="config.js?v=20261109a"></script>
+<script src="bible.js?v=20261109a"></script>
+<script src="verses.js?v=20261109a"></script>
+<script src="places.js?v=20261109a"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="app.js?v=20261105g"></script>
+<script src="app.js?v=20261109a"></script>
+<script src="pwa.js?v=20261109a"></script>
 <script>
   // Står både innlogging og app skjult etter nokre sekund, har noko gått gale under lasting
   setTimeout(function () {

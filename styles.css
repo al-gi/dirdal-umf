@@ -42,6 +42,18 @@ svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.8;stroke
 
 /* Topplinje */
 .appbar{position:sticky;top:0;z-index:20;background:color-mix(in srgb,var(--bg) 82%,transparent);backdrop-filter:saturate(1.4) blur(12px);-webkit-backdrop-filter:saturate(1.4) blur(12px);border-bottom:1px solid var(--line);padding-top:env(safe-area-inset-top,0px)}
+/* Installert app: iOS teiknar under statusfeltet (black-translucent + viewport-fit=cover).
+   Grøn stripe i safe-area, same farge som theme-color, så klokka ikkje ligg oppå topplinja. */
+html.standalone{background:var(--bg)}
+html.standalone .appbar{padding-left:env(safe-area-inset-left,0px);padding-right:env(safe-area-inset-right,0px);background:var(--bg)}
+html.standalone .appbar::before{content:"";position:absolute;top:0;left:0;right:0;height:env(safe-area-inset-top,0px);background:#1e6b4f;pointer-events:none;z-index:1}
+html.standalone .appbar-in{position:relative;z-index:2}
+@media (display-mode:standalone){
+  html{background:var(--bg)}
+  .appbar{padding-left:env(safe-area-inset-left,0px);padding-right:env(safe-area-inset-right,0px);background:var(--bg)}
+  .appbar::before{content:"";position:absolute;top:0;left:0;right:0;height:env(safe-area-inset-top,0px);background:#1e6b4f;pointer-events:none;z-index:1}
+  .appbar-in{position:relative;z-index:2}
+}
 .appbar-in{max-width:44rem;margin:0 auto;padding:.7rem 16px;display:flex;align-items:center;justify-content:space-between;gap:1rem}
 .brand{display:flex;align-items:center;gap:.7rem;min-width:0}
 .brand-mark{display:grid;place-items:center;width:38px;height:38px;border-radius:11px;background:linear-gradient(135deg,var(--hero-1),var(--hero-2));color:var(--hero-ink);flex:none}
@@ -69,6 +81,10 @@ nav.tabs button[aria-selected="true"]{background:var(--soft);color:var(--accent)
   nav.tabs button svg{width:22px;height:22px}
   nav.tabs button[aria-selected="true"]{background:none}
   nav.tabs button[aria-selected="true"] svg{background:var(--soft);border-radius:999px;width:46px;padding:2px 12px;height:26px}
+  html.standalone nav.tabs{padding-left:calc(6px + env(safe-area-inset-left,0px));padding-right:calc(6px + env(safe-area-inset-right,0px))}
+}
+@media (display-mode:standalone) and (max-width:720px){
+  nav.tabs{padding-left:calc(6px + env(safe-area-inset-left,0px));padding-right:calc(6px + env(safe-area-inset-right,0px))}
 }
 
 /* Kort og seksjonar */
@@ -81,6 +97,8 @@ nav.tabs button[aria-selected="true"]{background:var(--soft);color:var(--accent)
 .row{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:.5rem .75rem}
 .notice{background:var(--soft);border-radius:var(--r-sm);padding:.8rem 1rem;font-size:.92rem}
 .notice.warn{border:1px solid var(--danger)}
+.install-banner{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:.45rem .75rem;background:var(--surface);border:1px solid var(--line);border-radius:var(--r-sm);padding:.5rem .65rem .5rem .9rem;box-shadow:var(--shadow);font-size:.88rem}
+.install-banner p{margin:0;flex:1;min-width:12rem}
 .prose{white-space:pre-wrap;max-width:65ch}
 
 /* Knappar */
