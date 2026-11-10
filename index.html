@@ -27,7 +27,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800&family=Literata:ital,opsz,wght@1,7..72,400&display=swap">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
-<link rel="stylesheet" href="styles.css?v=20261109a">
+<link rel="stylesheet" href="styles.css?v=20261110a">
 </head>
 <body>
 <header class="appbar">
@@ -383,17 +383,34 @@
     </details>
     <p class="hint" id="calMsg"></p>
   </div>
+  <div class="block cal" id="pushBlock">
+    <h3>Varsel</h3>
+    <p class="hint" id="pushHint">Vel kva du vil ha beskjed om. Teksten på låseskjermen er kort og inneheld ikkje innlegg, adresser eller notat.</p>
+    <div class="stack" id="pushCats">
+      <label class="check"><input type="checkbox" id="pushMeeting" checked> Dagen før neste samling, kl. 18 norsk tid</label>
+      <label class="check"><input type="checkbox" id="pushWiki" checked> Ny side på wikien</label>
+      <label class="check"><input type="checkbox" id="pushForum" checked> Nytt innlegg eller svar i forumet</label>
+      <label class="check"><input type="checkbox" id="pushSite" checked> Oppdatering på sida</label>
+    </div>
+    <div class="btns">
+      <button type="button" class="btn primary" id="pushEnable">Slå på varsel</button>
+      <button type="button" class="btn" id="pushDisable" hidden>Slå av varsel</button>
+      <button type="button" class="btn link" id="pushForget" hidden>Fjern denne eininga</button>
+    </div>
+    <p class="hint" id="pushMsg" role="status"></p>
+  </div>
 </dialog>
 
 <!-- ?v= tvingar nettlesaren til å hente nye filer etter ei oppdatering; aukast ved kvar endring -->
-<script src="config.js?v=20261109a"></script>
-<script src="bible.js?v=20261109a"></script>
-<script src="verses.js?v=20261109a"></script>
-<script src="places.js?v=20261109a"></script>
+<script src="config.js?v=20261110a"></script>
+<script src="bible.js?v=20261110a"></script>
+<script src="verses.js?v=20261110a"></script>
+<script src="places.js?v=20261110a"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="app.js?v=20261109a"></script>
-<script src="pwa.js?v=20261109a"></script>
+<script src="app.js?v=20261110a"></script>
+<script src="pwa.js?v=20261110a"></script>
+<script src="push.js?v=20261110a"></script>
 <script>
   // Står både innlogging og app skjult etter nokre sekund, har noko gått gale under lasting
   setTimeout(function () {

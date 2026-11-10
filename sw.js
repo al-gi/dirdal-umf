@@ -5,9 +5,9 @@
    Auk CACHE saman med ?v= i index.html når skallet endrar seg. */
 'use strict';
 
-const CACHE = 'dumf-shell-20261109a';
+const CACHE = 'dumf-shell-20261110a';
 const SCOPE = self.registration.scope;
-const VERSION_QUERY = 'v=20261109a';
+const VERSION_QUERY = 'v=20261110a';
 
 const SHELL = [
   new URL('./', SCOPE).href,
@@ -19,6 +19,7 @@ const SHELL = [
   new URL('places.js?' + VERSION_QUERY, SCOPE).href,
   new URL('config.js?' + VERSION_QUERY, SCOPE).href,
   new URL('pwa.js?' + VERSION_QUERY, SCOPE).href,
+  new URL('push.js?' + VERSION_QUERY, SCOPE).href,
   new URL('manifest.webmanifest', SCOPE).href,
   new URL('icons/icon-192.png', SCOPE).href,
   new URL('icons/icon-512.png', SCOPE).href,
@@ -139,4 +140,42 @@ self.addEventListener('fetch', (event) => {
     if (res.ok && res.type === 'basic' && !res.redirected) await cache.put(req, res.clone());
     return res;
   })());
+});
+
+// Push er ikkje ein del av mellomlageret. Teksten kjem frå serveren og blir avgrensa her.
+const PUSH_HASH = { '#oversikt': 1, '#lesing': 1, '#wiki': 1, '#forum': 1, '#medlemer': 1 };
+function pushNote(data) {
+  const title = data && typeof data.title === 'string' && data.title.trim() ? data.title.trim().slice(0, 60) : 'Dirdal UMF';
+  const body = data && typeof data.body === 'string' && data.body.trim() ? data.body.trim().slice(0, 140) : 'Det er nytt på sida.';
+  const hash = data && PUSH_HASH[data.hash] ? data.hash : '#oversikt';
+  const tag = data && typeof data.tag === 'string' ? data.tag.replace(/[^\w:.-]/g, '').slice(0, 64) : 'dumf';
+  return { title: title, body: body, hash: hash, tag: tag || 'dumf' };
+}
+self.addEventListener('push', (event) => {
+  let data = {};
+  try { data = event.data ? event.data.json() : {}; } catch (err) { data = {}; }
+  const note = pushNote(data);
+  event.waitUntil(self.registration.showNotification(note.title, {
+    body: note.body,
+    tag: note.tag,
+    renotify: false,
+    lang: 'nn',
+    icon: new URL('icons/icon-192.png', SCOPE).href,
+    badge: new URL('icons/icon-192.png', SCOPE).href,
+    data: { url: new URL('./' + note.hash, SCOPE).href },
+  }));
+});
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const target = event.notification.data && event.notification.data.url || new URL('./', SCOPE).href;
+  event.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((list) => {
+    for (let i = 0; i < list.length; i++) {
+      const client = list[i];
+      if (client.url.indexOf(self.registration.scope) === 0 && 'focus' in client) {
+        if ('navigate' in client) client.navigate(target);
+        return client.focus();
+      }
+    }
+    if (self.clients.openWindow) return self.clients.openWindow(target);
+  }));
 });

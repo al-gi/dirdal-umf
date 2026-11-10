@@ -329,10 +329,12 @@ fieldset.passage legend{font-size:.85rem;font-weight:700;padding:0 .3rem}
 .preview{font-size:1.15rem;min-height:1.5em}
 
 /* Dialogar */
-dialog{border:0;border-radius:22px;background:var(--surface);color:var(--ink);padding:1.5rem;width:min(34rem,calc(100vw - 24px));max-height:calc(100% - 32px);box-shadow:0 20px 60px rgba(0,0,0,.25)}
+dialog{border:0;border-radius:22px;background:var(--surface);color:var(--ink);padding:1.5rem;width:min(34rem,calc(100vw - 24px));max-height:calc(100% - 32px);overflow:auto;box-shadow:0 20px 60px rgba(0,0,0,.25)}
 dialog::backdrop{background:rgba(8,14,11,.5);backdrop-filter:blur(3px)}
 dialog h2{font-size:1.35rem}
 dialog .cal{border-top:1px solid var(--line);margin-top:1.25rem;padding-top:1.1rem}
+label.check{display:flex;align-items:flex-start;gap:.6rem;font-weight:600;color:var(--ink);font-size:.92rem}
+label.check input{width:1.05rem;height:1.05rem;margin-top:.2rem;accent-color:var(--accent);flex:none}
 @media (max-width:520px){dialog{width:100%;max-width:none;margin:auto 0 0;border-radius:22px 22px 0 0;max-height:90%;padding-bottom:calc(1.5rem + env(safe-area-inset-bottom,0px))}}
 
 @media (prefers-reduced-motion:reduce){.bar span,.btn,input,textarea,select{transition:none}}

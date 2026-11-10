@@ -121,6 +121,20 @@ function supabaseStore() {
     async replies(threadId) { return ok(await sb.from('replies').select('*').eq('thread_id', threadId).order('created_at')); },
     async addReply(threadId, body) { ok(await sb.from('replies').insert({ thread_id: threadId, body })); },
     async deleteReply(id) { ok(await sb.from('replies').delete().eq('id', id)); },
+    async pushSettings() { return ok(await sb.rpc('my_push_settings')); },
+    async savePushPrefs(p) {
+      ok(await sb.rpc('save_push_prefs', {
+        p_enabled: !!p.enabled, p_meeting: !!p.meeting, p_wiki: !!p.wiki, p_forum: !!p.forum, p_site: !!p.site,
+      }));
+    },
+    async savePushSubscription(sub, label) {
+      const keys = sub.keys || {};
+      return ok(await sb.rpc('save_push_subscription', {
+        p_endpoint: sub.endpoint, p_p256dh: keys.p256dh, p_auth: keys.auth, p_label: label || '',
+      }));
+    },
+    async deletePushSubscription(endpoint) { ok(await sb.rpc('delete_push_subscription', { p_endpoint: endpoint })); },
+    async deleteAllPushSubscriptions() { ok(await sb.rpc('delete_all_push_subscriptions')); },
     live(fn) { sb.channel('endringar').on('postgres_changes', { event: '*', schema: 'public' }, p => fn(p.table)).subscribe(); },
   };
 }
@@ -206,6 +220,11 @@ function demoStore() {
       db.threads = db.threads.map(x => x.id === threadId ? { ...x, last_at: t } : x); save();
     },
     async deleteReply(id) { db.replies = db.replies.filter(r => r.id !== id); save(); },
+    async pushSettings() { return { demo: true, prefs: { enabled: false, meeting: true, wiki: true, forum: true, site: true }, devices: [] }; },
+    async savePushPrefs() {},
+    async savePushSubscription() {},
+    async deletePushSubscription() {},
+    async deleteAllPushSubscriptions() {},
     live() {},
   };
 }
@@ -1279,7 +1298,12 @@ $('#infoForm').addEventListener('submit', async e => {
 $('#profileBtn').addEventListener('click', () => { $('#pName').value = pname(meId()); $('#pBible').value = bibleVersion(); $('#profileDlg').showModal(); });
 $('#pBible').addEventListener('change', e => { try { localStorage.setItem('dumf-bibel', e.target.value); } catch {} render(); });
 $('#pCancel').addEventListener('click', () => $('#profileDlg').close());
-$('#logoutBtn').addEventListener('click', async () => { $('#profileDlg').close(); await store.signOut(); S.session = null; visitDone = false; render(); });
+$('#logoutBtn').addEventListener('click', async () => {
+  $('#profileDlg').close();
+  if (window.dumfPushLogout) await window.dumfPushLogout();
+  await store.signOut();
+  S.session = null; visitDone = false; render();
+});
 $('#profileForm').addEventListener('submit', async e => {
   e.preventDefault();
   if (await run(store.saveName(meId(), $('#pName').value.trim()))) { $('#profileDlg').close(); reload(); }
@@ -1381,6 +1405,19 @@ $('#newPassForm').addEventListener('submit', e => {
 /* =====================================================================
    Oppstart
    ===================================================================== */
+window.dumfPush = {
+  get demo() { return DEMO; },
+  async token() {
+    const session = await store.session();
+    return session && session.access_token;
+  },
+  settings: () => store.pushSettings(),
+  savePrefs: (p) => store.savePushPrefs(p),
+  saveSub: (sub, label) => store.savePushSubscription(sub, label),
+  forget: (endpoint) => store.deletePushSubscription(endpoint),
+  forgetAll: () => store.deleteAllPushSubscriptions(),
+};
+
 async function start() {
   let tab = 'oversikt';
   try { tab = localStorage.getItem('dumf-tab') || tab; } catch {}
