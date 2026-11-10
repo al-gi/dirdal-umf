@@ -4,7 +4,7 @@ import test from 'node:test';
 import {
   CATCHUP_HOUR, SEND_HOUR, categoryOf, deliverQueueItem, groupContentChanged, inReminderWindow,
   meetingChangeKind, meetingDedupeKey, osloToday, osloTomorrow, payloadFor, recipients, reminderItems,
-  requestKind,
+  requestKind, validVapidSubject,
 } from './logic.mjs';
 
 const user = '11111111-1111-1111-1111-111111111111';
@@ -141,12 +141,41 @@ test('sending er idempotent og fjernar daude abonnement', async () => {
   assert.equal(pending, true);
 });
 
+function fakeJwt(payload, alg = 'HS256') {
+  const enc = (obj) => Buffer.from(JSON.stringify(obj)).toString('base64url');
+  return enc({ alg, typ: 'JWT' }) + '.' + enc(payload) + '.signature';
+}
+
+test('VAPID-subject kan vere mailto eller https', () => {
+  assert.equal(validVapidSubject('mailto:dirdal@example.com'), true);
+  assert.equal(validVapidSubject('https://al-gi.github.io/dirdal-umf/'), true);
+  assert.equal(validVapidSubject(' HTTPS://al-gi.github.io/dirdal-umf/ '), true);
+  assert.equal(validVapidSubject('http://al-gi.github.io/dirdal-umf/'), false);
+  assert.equal(validVapidSubject('mailto:'), false);
+  assert.equal(validVapidSubject('https:'), false);
+  assert.equal(validVapidSubject(''), false);
+});
+
 test('berre service role får tømme køen', () => {
+  const legacyServiceJwt = fakeJwt({ role: 'service_role', iss: 'supabase' });
+  const userJwt = fakeJwt({ role: 'authenticated', sub: user });
+  const anonJwt = fakeJwt({ role: 'anon' });
+  const unsignedServiceJwt = fakeJwt({ role: 'service_role' }, 'none');
   assert.equal(requestKind('POST', 'Bearer service-role-key', 'service-role-key'), 'drain');
   assert.equal(requestKind('POST', 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.user', 'service-role-key'), 'forbidden');
   assert.equal(requestKind('POST', 'Bearer service-role-key', ''), 'forbidden');
-  assert.equal(requestKind('GET', 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.user', 'service-role-key'), 'public-key');
+  assert.equal(requestKind('GET', 'Bearer ' + userJwt, 'service-role-key'), 'public-key');
   assert.equal(requestKind('PUT', '', 'service-role-key'), 'method');
+  // pg_cron sender det gamle service_role-JWT-et sjølv om env-nøkkelen er sb_secret_.
+  assert.equal(requestKind('POST', 'Bearer ' + legacyServiceJwt, 'sb_secret_other'), 'drain');
+  assert.equal(requestKind('POST', 'Bearer ' + userJwt, 'sb_secret_other'), 'forbidden');
+  assert.equal(requestKind('POST', 'Bearer ' + anonJwt, 'sb_secret_other'), 'forbidden');
+  assert.equal(requestKind('POST', 'Bearer ' + unsignedServiceJwt, ''), 'forbidden');
+  assert.equal(requestKind('POST', 'Bearer ' + userJwt, userJwt), 'forbidden');
+  assert.equal(requestKind('POST', 'Bearer sb_secret_cron', 'sb_secret_env', 'sb_secret_cron, sb_secret_other'), 'drain');
+  assert.equal(requestKind('POST', 'Bearer sb_secret_json', '', '["sb_secret_json"]'), 'drain');
+  assert.equal(requestKind('POST', 'Bearer sb_secret_obj', '', '{"default":"sb_secret_obj"}'), 'drain');
+  assert.equal(requestKind('POST', 'Bearer sb_secret_unknown', 'sb_secret_env', 'sb_secret_cron'), 'forbidden');
 });
 
 test('sql stengjer køen og tek ikkje med kalendernøkkel eller service role', () => {

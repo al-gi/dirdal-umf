@@ -146,13 +146,94 @@ export async function deliverQueueItem({ row, subscriptions, prefs, already, sen
   return { done: !pending, results };
 }
 
-export function requestKind(method, authorization, serviceRoleKey) {
+// web-push godtek både mailto: og https:-URL som VAPID-subject.
+export function validVapidSubject(subject) {
+  const value = String(subject || '').trim();
+  const lower = value.toLowerCase();
+  if (lower.startsWith('mailto:') && value.length > 'mailto:'.length) return true;
+  if (lower.startsWith('https:') && value.length > 'https:'.length) return true;
+  return false;
+}
+
+function bearerToken(authorization) {
+  return String(authorization || '').replace(/^Bearer\s+/i, '').trim();
+}
+
+function decodeBase64Url(part) {
+  const pad = '='.repeat((4 - (part.length % 4)) % 4);
+  const b64 = part.replace(/-/g, '+').replace(/_/g, '/') + pad;
+  const binary = atob(b64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return new TextDecoder().decode(bytes);
+}
+
+// Les berre claims. Signaturen blir ikkje sjekka her: Supabase-porten gjer det når Verify JWT er på.
+export function jwtClaims(token) {
+  const parts = String(token || '').split('.');
+  if (parts.length !== 3 || parts.some((part) => !part)) return null;
+  try {
+    const header = JSON.parse(decodeBase64Url(parts[0]));
+    const payload = JSON.parse(decodeBase64Url(parts[1]));
+    if (!header || typeof header !== 'object' || !payload || typeof payload !== 'object') return null;
+    return { header, payload };
+  } catch (err) {
+    return null;
+  }
+}
+
+function addSecret(keys, value) {
+  if (typeof value !== 'string') return;
+  const trimmed = value.trim();
+  if (trimmed) keys.add(trimmed);
+}
+
+// SUPABASE_SECRET_KEYS kan vere ei kommaseparert liste, ein JSON-array eller eit JSON-objekt.
+export function secretKeySet(serviceRoleKey, secretKeys) {
+  const keys = new Set();
+  addSecret(keys, serviceRoleKey);
+  if (Array.isArray(secretKeys)) {
+    secretKeys.forEach((item) => addSecret(keys, item));
+    return keys;
+  }
+  if (secretKeys && typeof secretKeys === 'object') {
+    Object.values(secretKeys).forEach((item) => addSecret(keys, item));
+    return keys;
+  }
+  if (typeof secretKeys !== 'string') return keys;
+  const trimmed = secretKeys.trim();
+  if (!trimmed) return keys;
+  if (trimmed.startsWith('[') || trimmed.startsWith('{')) {
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (Array.isArray(parsed)) parsed.forEach((item) => addSecret(keys, item));
+      else if (parsed && typeof parsed === 'object') Object.values(parsed).forEach((item) => addSecret(keys, item));
+      else addSecret(keys, trimmed);
+      return keys;
+    } catch (err) {
+      addSecret(keys, trimmed);
+      return keys;
+    }
+  }
+  trimmed.split(',').forEach((item) => addSecret(keys, item));
+  return keys;
+}
+
+// POST tømmer køen berre for service role. Verify JWT må vere på, så porten har sjekka signaturen
+// før vi les role-claimet. anon og authenticated blir alltid avviste.
+export function requestKind(method, authorization, serviceRoleKey, secretKeys) {
   if (method === 'OPTIONS') return 'options';
   if (method === 'GET') return 'public-key';
-  if (method === 'POST') {
-    const bearer = String(authorization || '').replace(/^Bearer\s+/i, '').trim();
-    if (serviceRoleKey && bearer && bearer === serviceRoleKey) return 'drain';
-    return 'forbidden';
+  if (method !== 'POST') return 'method';
+  const bearer = bearerToken(authorization);
+  if (!bearer) return 'forbidden';
+  const claims = jwtClaims(bearer);
+  if (claims) {
+    const role = claims.payload.role;
+    if (role === 'anon' || role === 'authenticated') return 'forbidden';
+    const alg = String(claims.header.alg || '').toLowerCase();
+    if (role === 'service_role' && alg && alg !== 'none') return 'drain';
   }
-  return 'method';
+  if (secretKeySet(serviceRoleKey, secretKeys).has(bearer)) return 'drain';
+  return 'forbidden';
 }

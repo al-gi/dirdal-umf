@@ -57,8 +57,8 @@ Koden og migrasjonen ligg i repoet. Dei er **ikkje køyrde** mot produksjonsdata
 
 1. Køyr `oppdatering-8.sql` i Supabase → SQL Editor.
 2. Lag VAPID-nøklar lokalt, ikkje legg dei i git: `npx --yes web-push generate-vapid-keys`.
-3. Legg hemmelegheitene på edge-funksjonen `varsel` (Project Settings → Edge Functions → Secrets): `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, og `VAPID_SUBJECT` som `mailto:ei-adresse-de-eig`. `SUPABASE_SERVICE_ROLE_KEY` finst allereie i funksjonen og skal ikkje inn i nettlesaren.
-4. Deploy `supabase/functions/varsel` med **Verify JWT på**. Funksjonen godtek berre service role for utsending. Ein innlogga brukar kan berre hente den offentlege nøkkelen.
+3. Legg hemmelegheitene på edge-funksjonen `varsel` (Project Settings → Edge Functions → Secrets): `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, og `VAPID_SUBJECT`. Subject kan vere `mailto:ei-adresse-de-eig` eller ein `https:`-URL, til dømes `https://al-gi.github.io/dirdal-umf/`. `SUPABASE_SERVICE_ROLE_KEY` blir sett av Supabase og skal ikkje inn i nettlesaren.
+4. Deploy `supabase/functions/varsel` med **Verify JWT på**. Det må bli ståande på: porten sjekkar signaturen, og funksjonen les berre at JWT-et har `role=service_role`. Då verkar både det gamle service_role-JWT-et frå `pg_cron` og ein `sb_secret_`-nøkkel i `SUPABASE_SERVICE_ROLE_KEY` eller `SUPABASE_SECRET_KEYS`. anon og innlogga brukarar kan ikkje tømme køen. Dei kan berre hente den offentlege nøkkelen.
 5. Legg ein timeplan på funksjonen, `* * * * *` (kvart minutt), så køen blir tømd. Påminninga skjer likevel berre i vindauget kl. 18–19 Oslo. Supabase kallar funksjonen med service role.
 
 På iPhone verkar varsel berre i den installerte appen (heimskjermen), frå iOS 16.4. Sida spør om løyve først når brukaren trykker «Slå på varsel».

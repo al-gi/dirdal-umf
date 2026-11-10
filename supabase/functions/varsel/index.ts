@@ -1,11 +1,17 @@
 // Sender varsel som alt ligg i push_queue, og legg inn påminning dagen før samling.
 // POST er berre for service role (planlagd køyring i Supabase). GET gjev den offentlege
 // VAPID-nøkkelen til ein innlogga brukar. Ingen varseltekst kjem frå klienten.
-// Hemmelegheiter: VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, VAPID_SUBJECT (mailto:…).
+//
+// Verify JWT må vere PÅ. Porten sjekkar signaturen. Funksjonen les berre role-claimet
+// og godtek role=service_role, i tillegg til nøkkelen i SUPABASE_SERVICE_ROLE_KEY og
+// verdiane i SUPABASE_SECRET_KEYS. anon og authenticated blir avviste. Slår du av
+// Verify JWT, kan nokon sende eit usignert JWT med role=service_role.
+//
+// Hemmelegheiter: VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, VAPID_SUBJECT (mailto:… eller https://…).
 // SUPABASE_SERVICE_ROLE_KEY blir sett av Supabase og skal aldri til nettlesaren.
 import { createClient } from 'npm:@supabase/supabase-js@2.45.4';
 import webpush from 'npm:web-push@3.6.7';
-import { deliverQueueItem, reminderItems, requestKind } from './logic.mjs';
+import { deliverQueueItem, reminderItems, requestKind, validVapidSubject } from './logic.mjs';
 
 const cors = {
   'Access-Control-Allow-Origin': '*',
@@ -17,7 +23,12 @@ const json = (body: unknown, status = 200) =>
 
 Deno.serve(async (req) => {
   const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
-  const kind = requestKind(req.method, req.headers.get('Authorization'), serviceKey);
+  const kind = requestKind(
+    req.method,
+    req.headers.get('Authorization'),
+    serviceKey,
+    Deno.env.get('SUPABASE_SECRET_KEYS') || '',
+  );
   if (kind === 'options') return new Response(null, { headers: cors });
   if (kind === 'method') return json({ error: 'method' }, 405);
   if (kind === 'forbidden') return json({ error: 'forbidden' }, 403);
@@ -27,7 +38,7 @@ Deno.serve(async (req) => {
   const publicKey = (Deno.env.get('VAPID_PUBLIC_KEY') || '').trim();
   const privateKey = (Deno.env.get('VAPID_PRIVATE_KEY') || '').trim();
   const subject = (Deno.env.get('VAPID_SUBJECT') || '').trim();
-  const configured = !!(publicKey && privateKey && subject.startsWith('mailto:'));
+  const configured = !!(publicKey && privateKey && validVapidSubject(subject));
 
   if (kind === 'public-key') {
     const userClient = createClient(supabaseUrl, anonKey, {
