@@ -208,6 +208,19 @@ button.chip:hover{border-color:var(--accent)}
 .texthead .reading{font-size:1.5rem;font-weight:800;color:var(--verse);letter-spacing:-.01em}
 .texthead .sub{color:var(--muted)}
 #mapWrap{border-top:1px solid var(--line);padding-top:1rem}
+#notesWrap{border-top:1px solid var(--line);padding-top:1rem}
+.notes{display:flex;flex-direction:column;gap:.5rem}
+.note-ch{border:1px solid var(--line);border-radius:var(--r-sm);background:var(--surface-2);overflow:hidden}
+.note-ch > summary{list-style:none;display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:.25rem .75rem;padding:.75rem 1rem;color:var(--ink);font-weight:700;font-size:1rem}
+.note-ch > summary::-webkit-details-marker{display:none}
+.note-ch > summary::after{content:"";width:8px;height:8px;border-right:2px solid var(--muted);border-bottom:2px solid var(--muted);transform:rotate(45deg);margin-left:auto;align-self:center;transition:transform .15s}
+.note-ch[open] > summary::after{transform:rotate(-135deg)}
+.note-body{display:flex;flex-direction:column;gap:.9rem;padding:0 1rem 1rem}
+.note-part h4{margin:0 0 .25rem;font-size:.74rem;text-transform:uppercase;letter-spacing:.08em;color:var(--accent);font-weight:800}
+.note-part p{line-height:1.65;max-width:68ch}
+.note-part ol{margin:0;padding-left:1.2rem;display:flex;flex-direction:column;gap:.3rem;line-height:1.5}
+a.chip{text-decoration:none;color:var(--accent);font-weight:600}
+a.chip:hover{border-color:var(--accent)}
 .placemap{height:clamp(240px,50vw,380px);border-radius:var(--r-sm);border:1px solid var(--line);overflow:hidden;background:var(--soft);z-index:0}
 .mappop{font-family:var(--ui);font-size:.85rem;line-height:1.4}
 .mappop b{font-size:1rem}

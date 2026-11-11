@@ -497,6 +497,7 @@ function renderMap(nextMeetingArg) {
   $('#textEyebrow').textContent = label;
   $('#textWhen').textContent = next.status === 'postponed' ? 'Utsett, ny dato ikkje bestemt' : cap(fmtLong(next.date));
   $('#textTitle').replaceChildren(h('div', { class: 'texthead' }, readingBlock(next)));
+  renderNotes(next);
   const block = $('#mapWrap');
   const list = window.L ? meetingPlaces(next) : [];
   block.hidden = !list.length;
@@ -531,6 +532,25 @@ function renderMap(nextMeetingArg) {
   }, e.name)));
   fitPlaceMap();
 }
+/** «Om teksten»: studienotat per kapittel frå notes.js, med kryssreferansar som lenkjer til bibel.no. */
+const NOTE_PARTS = [['stad', 'Stad og tid'], ['bakgrunn', 'Bakgrunn og arkeologi'], ['kristus', 'Kristus i teksten'], ['bodskap', 'Kva vil teksten seie oss?']];
+function renderNotes(m) {
+  const N = window.STUDY_NOTES || {}, b = BY[m.book];
+  const to = Math.min(b.ch, Math.max(m.ch_from, m.ch_to || m.ch_from));
+  const chapters = [];
+  for (let c = m.ch_from; c <= to; c++) if (N[`${m.book}.${c}`]) chapters.push([c, N[`${m.book}.${c}`]]);
+  $('#notesWrap').hidden = !chapters.length;
+  $('#notesList').replaceChildren(...chapters.map(([c, n], i) => h('details', { class: 'note-ch', open: i === 0 || null },
+    h('summary', {}, h('span', { text: `${b.name} ${c}` }), h('span', { class: 'hint', text: 'Stad · bakgrunn · Kristus · bodskap · spørsmål' })),
+    h('div', { class: 'note-body' },
+      NOTE_PARTS.filter(([k]) => n[k]).map(([k, t]) => h('section', { class: 'note-part' }, h('h4', { text: t }), h('p', { text: n[k] }))),
+      n.sporsmal && n.sporsmal.length ? h('section', { class: 'note-part' }, h('h4', { text: 'Samtalespørsmål' }),
+        h('ol', {}, n.sporsmal.map(q => h('li', { text: q })))) : null,
+      n.les && n.les.length ? h('section', { class: 'note-part' }, h('h4', { text: 'Les òg' }),
+        h('div', { class: 'chips' }, n.les.map(([bk, ch, vv]) => BY[bk] ? h('a', { class: 'chip', href: bibleUrl(bk, ch), target: '_blank', rel: 'noopener',
+          text: `${BY[bk].abbr} ${ch}${vv ? ',' + vv : ''}` }) : null))) : null))));
+}
+
 /** Skjul namnelappar som overlappar ein lapp som allereie er vist (dei mest nemnde stadene vinn). */
 function hideOverlappingLabels() {
   const shown = [];

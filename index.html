@@ -27,7 +27,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800&family=Literata:ital,opsz,wght@1,7..72,400&display=swap">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
-<link rel="stylesheet" href="styles.css?v=20261110a">
+<link rel="stylesheet" href="styles.css?v=20261111a">
 </head>
 <body>
 <header class="appbar">
@@ -151,6 +151,11 @@
       <div class="card block textcard" id="textBlock" hidden>
         <div class="sec-head"><span class="eyebrow" id="textEyebrow">Til neste samling</span><span class="hint" id="textWhen"></span></div>
         <div id="textTitle"></div>
+        <div id="notesWrap" class="block" hidden>
+          <div class="sec-head"><h3>Om teksten</h3><span class="hint">Skrive av KI, luthersk og bibeltru lesing</span></div>
+          <div id="notesList" class="notes"></div>
+          <p class="hint">Notata er skrivne av Claude (KI) ut frå ei luthersk, bibeltru lesing i tråd med Misjonssambandet. Les dei gjerne kritisk og samanlikn med Skrifta.</p>
+        </div>
         <div id="mapWrap" class="block" hidden>
           <div class="sec-head"><h3>Stader i teksten</h3><span class="hint" id="mapCount"></span></div>
           <div id="placeMap" class="placemap" role="region" aria-label="Kart over stader i teksten"></div>
@@ -402,15 +407,16 @@
 </dialog>
 
 <!-- ?v= tvingar nettlesaren til å hente nye filer etter ei oppdatering; aukast ved kvar endring -->
-<script src="config.js?v=20261110a"></script>
-<script src="bible.js?v=20261110a"></script>
-<script src="verses.js?v=20261110a"></script>
-<script src="places.js?v=20261110a"></script>
+<script src="config.js?v=20261111a"></script>
+<script src="bible.js?v=20261111a"></script>
+<script src="verses.js?v=20261111a"></script>
+<script src="places.js?v=20261111a"></script>
+<script src="notes.js?v=20261111a"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="app.js?v=20261110a"></script>
-<script src="pwa.js?v=20261110a"></script>
-<script src="push.js?v=20261110a"></script>
+<script src="app.js?v=20261111a"></script>
+<script src="pwa.js?v=20261111a"></script>
+<script src="push.js?v=20261111a"></script>
 <script>
   // Står både innlogging og app skjult etter nokre sekund, har noko gått gale under lasting
   setTimeout(function () {

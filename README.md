@@ -73,6 +73,7 @@ Test logikken utan å sende noko: `node --test supabase/functions/varsel/logic.t
 | `app.js` | All logikk: innlogging, samlingar, lesekart, forum |
 | `bible.js` | Bøkene i Bibelen med nynorske namn og tal på kapittel |
 | `places.js` | Stader i Bibelen med koordinatar per kapittel (OpenBible.info, CC BY 4.0) til kartet på neste samling |
+| `notes.js` | Studienotat per kapittel («Om teksten»): stad og tid, bakgrunn, Kristus i teksten, bodskap, samtalespørsmål, kryssreferansar. Skrivne av KI etter luthersk, bibeltru lesing (NLM); no Matteus 4–14 |
 | `config.js` | Supabase-adresse og offentleg nøkkel |
 | `push.js` | Varselval i profilen. Løyve berre etter trykk |
 | `sw.js` | Mellomlager for skallet, og vising av push |
