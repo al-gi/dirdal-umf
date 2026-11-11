@@ -487,14 +487,24 @@ function renderMap(nextMeetingArg) {
   // Kortet øvst under Lesing: teksten med lenkjer til bibel.no, og kartet når teksten har stader.
   // Har ikkje neste samling ein bibeltekst, blir neste samling med tekst brukt, elles den siste de las.
   const hasText = m => !!(m && BY[m.book] && m.ch_from);
-  const { future, past } = split();
-  let next = hasText(nextMeetingArg) ? nextMeetingArg : future.find(hasText);
-  let label = 'Til neste samling';
+  const { future, past, postponed } = split();
+  // Alle planlagde samlingar med bibeltekst (utsette først), så ein kan lese om dei som kjem seinare òg
+  const planned = [...postponed, ...future].filter(hasText);
+  let next = planned.find(m => m.id === S.textMeetingId)
+    || (hasText(nextMeetingArg) ? nextMeetingArg : planned[0]);
+  let label = next === planned[0] ? 'Til neste samling' : 'Seinare samling';
   if (!next) { next = past.filter(isActive).find(hasText); label = 'Sist lese'; }
   const card = $('#textBlock');
   card.hidden = !S.loaded || !next;
   if (card.hidden) return;
   $('#textEyebrow').textContent = label;
+  const picker = $('#textPicker');
+  picker.hidden = planned.length < 2;
+  picker.replaceChildren(...planned.map((m, i) => h('button', {
+    type: 'button', role: 'tab', 'aria-selected': String(m.id === next.id),
+    onclick: () => { S.textMeetingId = m.id; renderMap(nextMeetingArg); fitPlaceMap(); },
+  }, h('span', { class: 'pk-when', text: m.status === 'postponed' ? 'Utsett' : (i === 0 ? 'Neste' : fmt(m.date, { day: 'numeric', month: 'short' })) }),
+     h('span', { class: 'pk-ref', text: ref(m) }))));
   $('#textWhen').textContent = next.status === 'postponed' ? 'Utsett, ny dato ikkje bestemt' : cap(fmtLong(next.date));
   $('#textTitle').replaceChildren(h('div', { class: 'texthead' }, readingBlock(next)));
   renderNotes(next);
@@ -543,12 +553,25 @@ function renderNotes(m) {
   $('#notesList').replaceChildren(...chapters.map(([c, n], i) => h('details', { class: 'note-ch', open: i === 0 || null },
     h('summary', {}, h('span', { text: `${b.name} ${c}` }), h('span', { class: 'hint', text: 'Stad · bakgrunn · Kristus · bodskap · spørsmål' })),
     h('div', { class: 'note-body' },
-      NOTE_PARTS.filter(([k]) => n[k]).map(([k, t]) => h('section', { class: 'note-part' }, h('h4', { text: t }), h('p', { text: n[k] }))),
+      NOTE_PARTS.filter(([k]) => n[k]).map(([k, t]) => h('section', { class: 'note-part' }, h('h4', { text: t }), h('p', { text: n[k] }),
+        k === 'bakgrunn' ? noteImages(`${m.book}.${c}`) : null)),
       n.sporsmal && n.sporsmal.length ? h('section', { class: 'note-part' }, h('h4', { text: 'Samtalespørsmål' }),
         h('ol', {}, n.sporsmal.map(q => h('li', { text: q })))) : null,
       n.les && n.les.length ? h('section', { class: 'note-part' }, h('h4', { text: 'Les òg' }),
         h('div', { class: 'chips' }, n.les.map(([bk, ch, vv]) => BY[bk] ? h('a', { class: 'chip', href: bibleUrl(bk, ch), target: '_blank', rel: 'noopener',
           text: `${BY[bk].abbr} ${ch}${vv ? ',' + vv : ''}` }) : null))) : null))));
+}
+
+/** Bilete frå Wikimedia Commons, med fotograf og lisens. */
+function noteImages(key) {
+  const list = (window.STUDY_IMAGES || {})[key] || [];
+  if (!list.length) return null;
+  return h('div', { class: 'finds' }, list.map(img => h('figure', { class: 'find' },
+    h('a', { href: img.page, target: '_blank', rel: 'noopener', title: 'Opne på Wikimedia Commons' },
+      h('img', { src: img.src, alt: img.tekst, loading: 'lazy', decoding: 'async' })),
+    h('figcaption', {}, h('span', { text: img.tekst }),
+      h('span', { class: 'credit' }, 'Foto: ', img.av || 'ukjend', ' · ', img.lisens || 'fri lisens', ' · ',
+        h('a', { href: img.page, target: '_blank', rel: 'noopener', text: 'Wikimedia Commons' }))))));
 }
 
 /** Skjul namnelappar som overlappar ein lapp som allereie er vist (dei mest nemnde stadene vinn). */
@@ -955,7 +978,10 @@ function meetingRow(m) {
       m.topic ? h('span', { class: r ? '' : 'verse', text: m.topic }) : null,
       !r && !m.topic ? h('span', { class: 'muted', text: 'Ingen tekst registrert' }) : null,
       m.host ? h('span', { class: 'muted', text: 'Hos ' + m.host }) : null,
-      m.note ? h('span', { class: 'note', text: m.note }) : null),
+      m.note ? h('span', { class: 'note', text: m.note }) : null,
+      BY[m.book] && m.ch_from && m.date >= today() && m.status !== 'cancelled'
+        ? h('button', { type: 'button', class: 'btn link textlink', onclick: () => { S.textMeetingId = m.id; showTab('lesing'); renderMap(nextMeeting()); } }, 'Om teksten, kart og bilete →')
+        : null),
     h('button', { class: 'btn link', onclick: () => openMeeting(m) }, 'Endre'));
 }
 

@@ -93,3 +93,100 @@ window.STUDY_NOTES = {
     les: [['JHN', 6, '1–21'], ['PSA', 23, '1–6'], ['EXO', 3, '14'], ['ISA', 43, '1–2']],
   },
 };
+
+// Bilete av arkeologiske funn (Wikimedia Commons, fritt lisensierte; fotograf og lisens visast under biletet).
+window.STUDY_IMAGES = {
+ "MAT.4": [
+  {
+   "src": "https://thumb.wikimedia.org/wikipedia/commons/thumb/e/e5/Ancient_Boat_of_Sea_of_Galilee.jpg/960px-Ancient_Boat_of_Sea_of_Galilee.jpg",
+   "page": "https://commons.wikimedia.org/wiki/File:Ancient_Boat_of_Sea_of_Galilee.jpg",
+   "tekst": "Fiskebåten frå 1. hundreåret, funnen ved Ginosar i 1986",
+   "lisens": "CC BY-SA 4.0",
+   "av": "Warfieldian"
+  },
+  {
+   "src": "https://thumb.wikimedia.org/wikipedia/commons/thumb/0/03/Magdala-584.jpg/960px-Magdala-584.jpg",
+   "page": "https://commons.wikimedia.org/wiki/File:Magdala-584.jpg",
+   "tekst": "Mosaikkgolv frå utgravingane i Magdala, der ei synagoge frå Jesu tid vart funnen i 2009",
+   "lisens": "CC BY 4.0",
+   "av": "Bukvoed"
+  }
+ ],
+ "MAT.5": [
+  {
+   "src": "https://thumb.wikimedia.org/wikipedia/commons/thumb/5/52/Kafarnaum_BW_20.jpg/960px-Kafarnaum_BW_20.jpg",
+   "page": "https://commons.wikimedia.org/wiki/File:Kafarnaum_BW_20.jpg",
+   "tekst": "Synagoga i Kapernaum (300–400-talet) på eldre grunnmur av svart basalt",
+   "lisens": "Public domain",
+   "av": "Berthold Werner"
+  }
+ ],
+ "MAT.7": [
+  {
+   "src": "https://thumb.wikimedia.org/wikipedia/commons/thumb/a/a3/Basalt_stairs_from_a_Byzantine_house_at_Capernaum_%285825977993%29.jpg/960px-Basalt_stairs_from_a_Byzantine_house_at_Capernaum_%285825977993%29.jpg",
+   "page": "https://commons.wikimedia.org/wiki/File:Basalt_stairs_from_a_Byzantine_house_at_Capernaum_(5825977993).jpg",
+   "tekst": "Hus av basaltstein i Kapernaum (seinare enn Jesu tid, same byggjemåte)",
+   "lisens": "CC BY-SA 2.0",
+   "av": "Ian Scott"
+  }
+ ],
+ "MAT.8": [
+  {
+   "src": "https://thumb.wikimedia.org/wikipedia/commons/thumb/c/c0/2%2C000_year-old_Galilee_Boat_%2825891250505%29.jpg/960px-2%2C000_year-old_Galilee_Boat_%2825891250505%29.jpg",
+   "page": "https://commons.wikimedia.org/wiki/File:2,000_year-old_Galilee_Boat_(25891250505).jpg",
+   "tekst": "Den 2000 år gamle Galilea-båten, slik han står utstilt i dag",
+   "lisens": "CC BY-SA 2.0",
+   "av": "Konrad Summers from Santa Clarita (Valencia) , California, U"
+  },
+  {
+   "src": "https://thumb.wikimedia.org/wikipedia/commons/thumb/7/7a/Holy_Land_2016_P0456_Capernaum_ruins_of_Saint_Peters_House_under_Saint_Peter_Church.jpg/960px-Holy_Land_2016_P0456_Capernaum_ruins_of_Saint_Peters_House_under_Saint_Peter_Church.jpg",
+   "page": "https://commons.wikimedia.org/wiki/File:Holy_Land_2016_P0456_Capernaum_ruins_of_Saint_Peters_House_under_Saint_Peter_Church.jpg",
+   "tekst": "Restane av huset som tidleg vart æra som Peters hus i Kapernaum",
+   "lisens": "CC BY-SA 4.0",
+   "av": "Fallaner"
+  }
+ ],
+ "MAT.9": [
+  {
+   "src": "https://thumb.wikimedia.org/wikipedia/commons/thumb/0/0b/Kafarnaum_BW_7.JPG/960px-Kafarnaum_BW_7.JPG",
+   "page": "https://commons.wikimedia.org/wiki/File:Kafarnaum_BW_7.JPG",
+   "tekst": "Ruinane av Kapernaum, Jesu «eigen by»",
+   "lisens": "Public domain",
+   "av": "Berthold Werner"
+  }
+ ],
+ "MAT.11": [
+  {
+   "src": "https://thumb.wikimedia.org/wikipedia/commons/thumb/b/b2/Machaerus_Panorama.jpg/960px-Machaerus_Panorama.jpg",
+   "page": "https://commons.wikimedia.org/wiki/File:Machaerus_Panorama.jpg",
+   "tekst": "Festningshaugen Makærus aust for Daudehavet, der Johannes Døyparen ifølgje Josefus sat fengsla",
+   "lisens": "Public domain",
+   "av": ""
+  },
+  {
+   "src": "https://thumb.wikimedia.org/wikipedia/commons/thumb/2/21/Chorazin_Synagogue_-_Stone_Seat.jpg/960px-Chorazin_Synagogue_-_Stone_Seat.jpg",
+   "page": "https://commons.wikimedia.org/wiki/File:Chorazin_Synagogue_-_Stone_Seat.jpg",
+   "tekst": "«Mosestolen» frå synagoga i Korasin (originalen står i Israelmuseet)",
+   "lisens": "Public domain",
+   "av": "Davidbena"
+  }
+ ],
+ "MAT.12": [
+  {
+   "src": "https://thumb.wikimedia.org/wikipedia/commons/thumb/8/8d/Nergal_gate_in_Nineveh.JPG/960px-Nergal_gate_in_Nineveh.JPG",
+   "page": "https://commons.wikimedia.org/wiki/File:Nergal_gate_in_Nineveh.JPG",
+   "tekst": "Nergal-porten i Nineve, byen Jona vart send til (bygd opp att på dei gamle grunnmurane)",
+   "lisens": "Public domain",
+   "av": "JoAnn S. Makinano, U.S. Air Force"
+  }
+ ],
+ "MAT.14": [
+  {
+   "src": "https://thumb.wikimedia.org/wikipedia/commons/thumb/d/d6/Tabgha_Church_Mosaic_Israel.jpg/960px-Tabgha_Church_Mosaic_Israel.jpg",
+   "page": "https://commons.wikimedia.org/wiki/File:Tabgha_Church_Mosaic_Israel.jpg",
+   "tekst": "Mosaikken med brød og fiskar i kyrkja i Tabgha (400-talet)",
+   "lisens": "CC BY-SA 3.0",
+   "av": "Grauesel"
+  }
+ ]
+};

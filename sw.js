@@ -5,9 +5,9 @@
    Auk CACHE saman med ?v= i index.html når skallet endrar seg. */
 'use strict';
 
-const CACHE = 'dumf-shell-20261111a';
+const CACHE = 'dumf-shell-20261111b';
 const SCOPE = self.registration.scope;
-const VERSION_QUERY = 'v=20261111a';
+const VERSION_QUERY = 'v=20261111b';
 
 const SHELL = [
   new URL('./', SCOPE).href,
