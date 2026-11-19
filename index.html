@@ -27,7 +27,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800&family=Literata:ital,opsz,wght@1,7..72,400&display=swap">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
-<link rel="stylesheet" href="styles.css?v=20261111b">
+<link rel="stylesheet" href="styles.css?v=20261119a">
 </head>
 <body>
 <header class="appbar">
@@ -246,6 +246,10 @@
       </div>
     </section>
   </div>
+
+  <footer class="site-foot" id="installFoot">
+    <button type="button" class="btn primary" id="installPageBtn">Installer appen</button>
+  </footer>
 </div>
 
 <dialog id="meetingDlg">
@@ -407,17 +411,30 @@
   </div>
 </dialog>
 
+<dialog id="installGuide" class="install-guide" aria-labelledby="installGuideTitle">
+  <div class="stack">
+    <h2 id="installGuideTitle">Installer appen</h2>
+    <p id="installGuideLead"></p>
+    <p class="install-path" id="installGuidePath" hidden>
+      <span class="share-ico" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 16V4"/><path d="m8 8 4-4 4 4"/><path d="M6 10H5a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-8a1 1 0 0 0-1-1h-1"/></svg></span>
+      <span id="installGuidePathText"></span>
+    </p>
+    <ol id="installGuideSteps" class="install-steps"></ol>
+    <div class="row"><span></span><button type="button" class="btn primary" id="installGuideClose">Lukk</button></div>
+  </div>
+</dialog>
+
 <!-- ?v= tvingar nettlesaren til å hente nye filer etter ei oppdatering; aukast ved kvar endring -->
-<script src="config.js?v=20261111b"></script>
-<script src="bible.js?v=20261111b"></script>
-<script src="verses.js?v=20261111b"></script>
-<script src="places.js?v=20261111b"></script>
-<script src="notes.js?v=20261111b"></script>
+<script src="config.js?v=20261119a"></script>
+<script src="bible.js?v=20261119a"></script>
+<script src="verses.js?v=20261119a"></script>
+<script src="places.js?v=20261119a"></script>
+<script src="notes.js?v=20261119a"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="app.js?v=20261111b"></script>
-<script src="pwa.js?v=20261111b"></script>
-<script src="push.js?v=20261111b"></script>
+<script src="app.js?v=20261119a"></script>
+<script src="pwa.js?v=20261119a"></script>
+<script src="push.js?v=20261119a"></script>
 <script>
   // Står både innlogging og app skjult etter nokre sekund, har noko gått gale under lasting
   setTimeout(function () {
