@@ -1,6 +1,6 @@
 # Dirdal Unge Mannsforening – bibelgruppe
 
-Nettsida til bibelgruppa: neste samling, kva vi les, oversikt over alle bøkene i Bibelen med det vi har lese merka av, kven vi har vore hos, eit forum, og medlemsliste med adresser som opnar i Google Maps.
+Nettsida til bibelgruppa: neste samling, kva vi les, oversikt over alle bøkene i Bibelen med det vi har lese merka av, kven vi har vore hos, eit forum, bønneemne, og medlemsliste med adresser som opnar i Google Maps.
 Alle loggar inn med **fornamn og eit felles passord**. Første gong eit namn loggar inn, blir brukaren oppretta. Det felles passordet er det same som gruppekoden i databasen (`private.settings.invite_code`), så berre dei som kan passordet kjem inn. Dei som laga brukar med e-post før, kan framleis logge inn under «Med e-post».
 
 Sida er reine filer (HTML/CSS/JS) som ligg gratis på GitHub Pages. Data og innlogging ligg i Supabase (gratisplan).
@@ -19,7 +19,7 @@ og gå til http://localhost:8000. Så lenge `config.js` er tom, køyrer sida i *
 
 ### 1. Supabase (database og innlogging)
 1. Opprett ein gratis konto på https://supabase.com og lag eit nytt prosjekt (region: Stockholm eller Frankfurt).
-2. Opne **SQL Editor**, lim inn heile `schema.sql`, byt ut `'byt-meg'` med gruppekoden de vil bruke, og trykk **Run**. Køyr deretter `oppdatering-2.sql` (lesing utan samling, wiki, «Anna info», medlemstekst) og `oppdatering-3.sql` (påmelding, samtale/forslag om ny dag, kalender) på same måte.
+2. Opne **SQL Editor**, lim inn heile `schema.sql`, byt ut `'byt-meg'` med gruppekoden de vil bruke, og trykk **Run**. Køyr deretter `oppdatering-2.sql` (lesing utan samling, wiki, «Anna info», medlemstekst) og `oppdatering-3.sql` (påmelding, samtale/forslag om ny dag, kalender) på same måte. Køyr òg dei nyare oppdateringsfilene i nummerrekkjefølgje, t.d. `oppdatering-8.sql` (bønneemne).
    - Kalenderabonnement: **Edge Functions → Deploy a new function → Via Editor**, kall funksjonen `kalender`, lim inn `supabase/functions/kalender/index.ts` og trykk Deploy. Opne funksjonen etterpå, gå til **Details** og slå av **Verify JWT**, og lagre.
    - Fornamnsinnlogging for dei med e-postbrukar: lag funksjonen `namn-login` på same måte frå `supabase/functions/namn-login/index.ts`, og slå av **Verify JWT**.
 3. Legg inn medlemslista: køyr den private fila `medlemmar.sql` (ligg utanfor repoet, i `dirdal-umf-privat`) i SQL Editor på same måte. Adresser og telefonnummer skal **aldri** ligge i dette repoet, sidan det er offentleg; i databasen er dei berre synlege for innlogga medlemer.

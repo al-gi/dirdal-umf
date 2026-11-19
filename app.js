@@ -58,7 +58,7 @@ function supabaseStore() {
     async setPassword(password) { ok(await sb.auth.updateUser({ password })); },
     async signOut() { await sb.auth.signOut(); },
     async loadAll() {
-      const [m, t, p, i, mb, r, w, at, cm, pv, vs] = await Promise.all([
+      const [m, t, p, i, mb, r, w, at, cm, pv, vs, pr, pm] = await Promise.all([
         sb.from('meetings').select('*'),
         sb.from('threads').select('*').order('last_at', { ascending: false }),
         sb.from('profiles').select('id,name').order('name'),
@@ -70,18 +70,28 @@ function supabaseStore() {
         sb.from('meeting_comments').select('*').order('created_at'),
         sb.from('proposal_votes').select('*'),
         sb.from('verses').select('*').order('created_at'),
+        sb.from('prayers').select('*').order('created_at', { ascending: false }),
+        sb.from('prayer_marks').select('prayer_id,user_id'),
       ]);
       // Tabellar frå oppdatering-2/3.sql: manglar dei, går resten likevel
       const soft = x => (x.error ? [] : x.data);
       return { meetings: ok(m), threads: ok(t), profiles: ok(p), info: ok(i), members: ok(mb), readings: soft(r), wiki: soft(w),
-        attendance: soft(at), comments: soft(cm), votes: soft(pv), verses: soft(vs),
+        attendance: soft(at), comments: soft(cm), votes: soft(pv), verses: soft(vs), prayers: soft(pr), prayerMarks: soft(pm),
         needsUpdate: [r, w].some(x => x.error) ? 'oppdatering-2.sql' : [at, cm, pv].some(x => x.error) ? 'oppdatering-3.sql' : vs.error ? 'oppdatering-4.sql'
-          : (m.data && m.data.length && !('status' in m.data[0])) ? 'oppdatering-5.sql' : null };
+          : (m.data && m.data.length && !('status' in m.data[0])) ? 'oppdatering-5.sql' : [pr, pm].some(x => x.error) ? 'oppdatering-8.sql' : null };
     },
     // Besøksteljing (oppdatering-7.sql). Feil her skal aldri stoppe sida.
     async logVisit() { await sb.rpc('log_visit'); },
     async addVerse(row) { ok(await sb.from('verses').insert(row)); },
     async deleteVerse(id) { ok(await sb.from('verses').delete().eq('id', id)); },
+    async addPrayer(body) { ok(await sb.from('prayers').insert({ body })); },
+    async answerPrayer(id, answer) { ok(await sb.from('prayers').update(answer == null ? { answered_at: null, answer: null } : { answered_at: now(), answer }).eq('id', id)); },
+    async deletePrayer(id) { ok(await sb.from('prayers').delete().eq('id', id)); },
+    async prayFor(prayerId, on) {
+      const uid = (await this.session()).user.id;
+      if (on) ok(await sb.from('prayer_marks').insert({ prayer_id: prayerId, user_id: uid }));
+      else ok(await sb.from('prayer_marks').delete().eq('prayer_id', prayerId).eq('user_id', uid));
+    },
     async setAttendance(meetingId, status) {
       const uid = (await this.session()).user.id;
       if (!status) ok(await sb.from('attendance').delete().eq('meeting_id', meetingId).eq('user_id', uid));
@@ -146,6 +156,8 @@ function demoStore() {
     wiki: [{ id: uid(), title: 'Eksempel: Bibelleseplanar', body: 'Eksempelside i demomodus.\nTips: https://www.bibel.no', tags: ['tips', 'lesing'], author: 'demo2', updated_by: 'demo2', created_at: new Date().toISOString(), updated_at: new Date().toISOString() }],
     threads: [{ id: uid(), title: 'Eksempel: Kvifor talar Jesus i likningar?', body: 'Dette er eit eksempelinnlegg i demomodus.', author: 'demo2', created_at: new Date(Date.now() - 864e5 * 3).toISOString(), last_at: new Date(Date.now() - 864e5 * 3).toISOString() }],
     replies: [],
+    prayers: [{ id: 'demo-pr1', body: 'Eksempel: Be for familien min som skal flytte i vinter.', author: 'demo2', answered_at: null, answer: null, created_at: new Date(Date.now() - 864e5 * 2).toISOString() }],
+    prayerMarks: [{ prayer_id: 'demo-pr1', user_id: 'demo2' }],
   });
   let db;
   try { db = JSON.parse(localStorage.getItem(KEY)) || seed(); } catch { db = seed(); }
@@ -157,10 +169,19 @@ function demoStore() {
     async signIn() {}, async signUp() {}, async signInByName() { return { match: false }; }, async reset() {}, async setPassword() {},
     async signOut() { try { localStorage.removeItem(KEY); } catch {} location.reload(); },
     async loadAll() { return JSON.parse(JSON.stringify({ meetings: db.meetings, threads: [...db.threads].sort((a, b) => b.last_at.localeCompare(a.last_at)), profiles: db.profiles, info: db.info, members: [...(db.members || [])].sort((a, b) => a.sort - b.sort), readings: db.readings || [], wiki: [...(db.wiki || [])].sort((a, b) => b.updated_at.localeCompare(a.updated_at)),
-      attendance: db.attendance || [], comments: db.comments || [], votes: db.votes || [], verses: db.verses || [] })); },
+      attendance: db.attendance || [], comments: db.comments || [], votes: db.votes || [], verses: db.verses || [],
+      prayers: [...(db.prayers || [])].sort((a, b) => b.created_at.localeCompare(a.created_at)), prayerMarks: db.prayerMarks || [] })); },
     async logVisit() {},
     async addVerse(row) { (db.verses ||= []).push({ ...row, id: uid(), added_by: 'demo', created_at: ts() }); save(); },
     async deleteVerse(id) { db.verses = (db.verses || []).filter(v => v.id !== id); save(); },
+    async addPrayer(body) { (db.prayers ||= []).push({ id: uid(), body, author: 'demo', answered_at: null, answer: null, created_at: ts() }); save(); },
+    async answerPrayer(id, answer) { db.prayers = (db.prayers || []).map(p => p.id === id ? { ...p, answered_at: answer == null ? null : ts(), answer: answer ?? null } : p); save(); },
+    async deletePrayer(id) { db.prayers = (db.prayers || []).filter(p => p.id !== id); db.prayerMarks = (db.prayerMarks || []).filter(m => m.prayer_id !== id); save(); },
+    async prayFor(prayerId, on) {
+      db.prayerMarks = (db.prayerMarks || []).filter(m => !(m.prayer_id === prayerId && m.user_id === 'demo'));
+      if (on) db.prayerMarks.push({ prayer_id: prayerId, user_id: 'demo' });
+      save();
+    },
     async setAttendance(meetingId, status) {
       db.attendance = (db.attendance || []).filter(a => !(a.meeting_id === meetingId && a.user_id === 'demo'));
       if (status) db.attendance.push({ meeting_id: meetingId, user_id: 'demo', status });
@@ -215,7 +236,7 @@ const store = DEMO ? demoStore() : supabaseStore();
 /* =====================================================================
    Tilstand og hjelparar
    ===================================================================== */
-const S = { session: null, meetings: [], threads: [], profiles: [], members: [], readings: [], wiki: [], attendance: [], comments: [], votes: [], verses: [], info: null, replies: [], openThread: null, loaded: false, selBook: null,
+const S = { session: null, meetings: [], threads: [], profiles: [], members: [], readings: [], wiki: [], attendance: [], comments: [], votes: [], verses: [], prayers: [], prayerMarks: [], info: null, replies: [], openThread: null, loaded: false, selBook: null,
   wikiQuery: '', wikiTag: null, openWiki: null };
 const meId = () => S.session && S.session.user.id;
 
@@ -350,7 +371,7 @@ function render() {
   $('#profileBtn').textContent = (myName.match(/\p{L}+/gu) || []).slice(0, 2).map(w => w[0].toUpperCase()).join('') || '?';
   $('#profileBtn').title = myName + ' – profil og kalender';
   renderOverview(); renderReading(); renderForum(); renderMembers(); renderWiki();
-  renderDaily(); renderVerseBank(); renderSoon();
+  renderDaily(); renderVerseBank(); renderSoon(); renderPrayers();
 }
 
 /** Tekst med klikkbare lenkjer, utan å tolke HTML. */
@@ -1046,6 +1067,45 @@ function delBtn(fn) {
   return b;
 }
 
+/* ---------- Bønneemne ---------- */
+function prayerItem(p) {
+  const mine = p.author === meId();
+  const marks = S.prayerMarks.filter(m => m.prayer_id === p.id);
+  const iPray = marks.some(m => m.user_id === meId());
+  const who = marks.map(m => m.user_id === meId() ? 'deg' : pname(m.user_id));
+  const actions = [];
+  if (!p.answered_at) {
+    actions.push(h('button', { type: 'button', class: 'btn small' + (iPray ? ' on' : ''), 'aria-pressed': String(iPray),
+      title: who.length ? 'Ber for dette: ' + who.join(', ') : null,
+      onclick: () => run(store.prayFor(p.id, !iPray)).then(okd => okd && reload()) },
+      (iPray ? '🙏 Du ber for dette' : '🙏 Eg ber for dette') + (marks.length ? ` · ${marks.length}` : '')));
+  }
+  if (mine && !p.answered_at) actions.push(h('button', { type: 'button', class: 'btn link', onclick: () => openAnswer(p) }, 'Merk som svara'));
+  if (mine && p.answered_at) actions.push(h('button', { type: 'button', class: 'btn link', onclick: () => run(store.answerPrayer(p.id, null)).then(okd => okd && reload()) }, 'Angre svar'));
+  if (mine) actions.push(delBtn(() => run(store.deletePrayer(p.id)).then(okd => okd && reload())));
+  return h('div', { class: 'post prayer' + (p.answered_at ? ' answered' : '') },
+    byline(p.author, p.created_at),
+    h('div', { class: 'body', text: p.body }),
+    p.answered_at ? h('div', { class: 'answer' }, h('b', { text: 'Bønnesvar ' + fmtShort(localDate(new Date(p.answered_at))) + (p.answer ? ': ' : '') }), p.answer || '') : null,
+    actions.length ? h('div', { class: 'row prayer-actions' }, ...actions) : null);
+}
+function renderPrayers() {
+  const open = S.prayers.filter(p => !p.answered_at);
+  const done = S.prayers.filter(p => p.answered_at).sort((a, b) => b.answered_at.localeCompare(a.answered_at));
+  $('#prayerList').replaceChildren(...open.map(prayerItem));
+  $('#prayerEmpty').hidden = !S.loaded || open.length > 0;
+  $('#prayerCount').textContent = open.length ? `${open.length} emne` : '';
+  $('#answeredBox').hidden = !done.length;
+  $('#answeredSum').textContent = `Bønnesvar (${done.length})`;
+  $('#answeredList').replaceChildren(...done.map(prayerItem));
+}
+function openAnswer(p) {
+  $('#aText').textContent = p.body;
+  $('#aBody').value = '';
+  $('#answerDlg').dataset.id = p.id;
+  $('#answerDlg').showModal();
+}
+
 function renderForum() {
   const list = $('#threadList');
   list.replaceChildren(...S.threads.map(t => h('button', { class: 'thread', onclick: () => openThread(t.id) },
@@ -1091,7 +1151,8 @@ async function reload() {
   try {
     const d = await store.loadAll();
     Object.assign(S, { meetings: d.meetings || [], threads: d.threads || [], profiles: d.profiles || [], members: d.members || [], readings: d.readings || [], wiki: d.wiki || [],
-      attendance: d.attendance || [], comments: d.comments || [], votes: d.votes || [], verses: d.verses || [], info: d.info, loaded: true });
+      attendance: d.attendance || [], comments: d.comments || [], votes: d.votes || [], verses: d.verses || [],
+      prayers: d.prayers || [], prayerMarks: d.prayerMarks || [], info: d.info, loaded: true });
     setStatus(d.needsUpdate ? `Databasen manglar ei oppdatering, så nokre funksjonar kan ikkje lagre noko enno. Den som styrer Supabase må køyre ${d.needsUpdate} i SQL Editor.` : '');
   } catch (err) {
     console.error(err);
@@ -1283,6 +1344,18 @@ $('#logoutBtn').addEventListener('click', async () => { $('#profileDlg').close()
 $('#profileForm').addEventListener('submit', async e => {
   e.preventDefault();
   if (await run(store.saveName(meId(), $('#pName').value.trim()))) { $('#profileDlg').close(); reload(); }
+});
+
+/* ---------- Bønneemne ---------- */
+$('#prayerForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const body = $('#prayerBody').value.trim(); if (!body) return;
+  if (await run(store.addPrayer(body))) { e.target.reset(); reload(); }
+});
+$('#aCancel').addEventListener('click', () => $('#answerDlg').close());
+$('#answerForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  if (await run(store.answerPrayer($('#answerDlg').dataset.id, $('#aBody').value.trim()))) { $('#answerDlg').close(); reload(); }
 });
 
 /* ---------- Forum ---------- */

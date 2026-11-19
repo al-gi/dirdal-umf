@@ -115,6 +115,19 @@
         <div class="sec-head"><h3>Beskjedar</h3><button class="btn link" id="editNotice">Endre</button></div>
         <div id="noticeBox"></div>
       </div>
+      <div class="card block" id="prayerBlock">
+        <div class="sec-head"><h3>Bønneemne</h3><span class="hint" id="prayerCount"></span></div>
+        <div id="prayerList"></div>
+        <p class="muted" id="prayerEmpty" hidden>Ingen bønneemne no. Legg gjerne inn noko de kan be for.</p>
+        <form class="stack" id="prayerForm">
+          <label class="f">Nytt bønneemne<textarea id="prayerBody" rows="2" maxlength="2000" required placeholder="Kva vil du at vi skal be for?"></textarea></label>
+          <div class="row"><span class="hint">Berre medlemer av gruppa ser bønneemna.</span><button class="btn primary">Legg til</button></div>
+        </form>
+        <details id="answeredBox" hidden>
+          <summary id="answeredSum">Bønnesvar</summary>
+          <div id="answeredList"></div>
+        </details>
+      </div>
       <div class="card block" id="laterBlock" hidden>
         <h3>Seinare samlingar</h3>
         <div class="list" id="laterList"></div>
@@ -317,6 +330,15 @@
     <label class="f">Verseteksten<textarea id="vBody" rows="4" maxlength="2000" placeholder="Skriv av verset frå bibelen din, eller kopier frå bibel.no"></textarea></label>
     <label class="f">Kvifor du likar det (valfritt)<input id="vComment" maxlength="1000"></label>
     <div class="row"><a class="biblelink" id="vOpen" target="_blank" rel="noopener">Opne på bibel.no ↗</a><span><button type="button" class="btn" id="vCancel">Avbryt</button> <button class="btn primary">Lagre</button></span></div>
+  </form>
+</dialog>
+
+<dialog id="answerDlg">
+  <form class="stack" id="answerForm">
+    <h2>Bønnesvar</h2>
+    <p class="muted" id="aText"></p>
+    <label class="f">Kva skjedde? (valfritt)<textarea id="aBody" rows="3" maxlength="2000" placeholder="Fortel gjerne korleis bøna vart svara"></textarea></label>
+    <div class="row"><span></span><span><button type="button" class="btn" id="aCancel">Avbryt</button> <button class="btn primary">Lagre</button></span></div>
   </form>
 </dialog>
 
