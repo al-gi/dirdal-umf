@@ -27,7 +27,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800&family=Literata:ital,opsz,wght@1,7..72,400&display=swap">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
-<link rel="stylesheet" href="styles.css?v=20261119a">
+<link rel="stylesheet" href="styles.css?v=20261121a">
 </head>
 <body>
 <header class="appbar">
@@ -97,6 +97,7 @@
   <div id="app" hidden>
     <nav class="tabs" role="tablist" aria-label="Hovudmeny">
       <button role="tab" data-tab="oversikt" aria-selected="true"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z"/></svg><span>Oversikt</span></button>
+      <button role="tab" data-tab="samlingar" aria-selected="false"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15.5" rx="2"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg><span>Samlingar</span></button>
       <button role="tab" data-tab="lesing" aria-selected="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19.5V5a2 2 0 0 1 2-2h14v15H6a2 2 0 0 0-2 2 2 2 0 0 0 2 2h14"/><path d="M8.5 7.5h7"/></svg><span>Lesing</span></button>
       <button role="tab" data-tab="wiki" aria-selected="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3H6.5A1.5 1.5 0 0 0 5 4.5v15A1.5 1.5 0 0 0 6.5 21h11a1.5 1.5 0 0 0 1.5-1.5V8z"/><path d="M14 3v5h5M8.5 13h7M8.5 17h4.5"/></svg><span>Wiki</span></button>
       <button role="tab" data-tab="forum" aria-selected="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.5 11.5a8 8 0 0 1-11.7 7.1L3.5 20l1.4-4.7a8 8 0 1 1 15.6-3.8z"/></svg><span>Forum</span></button>
@@ -141,8 +142,16 @@
         <div id="noticeBox"></div>
       </div>
       <div class="card block" id="laterBlock" hidden>
-        <h3>Seinare samlingar</h3>
+        <div class="sec-head"><h3>Seinare samlingar</h3><button class="btn link" id="laterMore">Sjå alle</button></div>
         <div class="list" id="laterList"></div>
+      </div>
+    </section>
+
+    <!-- SAMLINGAR: alle framtidige samlingar -->
+    <section class="pane" id="pane-samlingar" hidden>
+      <div class="card block">
+        <div class="sec-head"><h3>Framtidige samlingar</h3><button class="btn" id="planMeeting">Planlegg ny samling</button></div>
+        <div id="futureList"></div>
       </div>
     </section>
 
@@ -425,16 +434,16 @@
 </dialog>
 
 <!-- ?v= tvingar nettlesaren til å hente nye filer etter ei oppdatering; aukast ved kvar endring -->
-<script src="config.js?v=20261119a"></script>
-<script src="bible.js?v=20261119a"></script>
-<script src="verses.js?v=20261119a"></script>
-<script src="places.js?v=20261119a"></script>
-<script src="notes.js?v=20261119a"></script>
+<script src="config.js?v=20261121a"></script>
+<script src="bible.js?v=20261121a"></script>
+<script src="verses.js?v=20261121a"></script>
+<script src="places.js?v=20261121a"></script>
+<script src="notes.js?v=20261121a"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="app.js?v=20261119a"></script>
-<script src="pwa.js?v=20261119a"></script>
-<script src="push.js?v=20261119a"></script>
+<script src="app.js?v=20261121a"></script>
+<script src="pwa.js?v=20261121a"></script>
+<script src="push.js?v=20261121a"></script>
 <script>
   // Står både innlogging og app skjult etter nokre sekund, har noko gått gale under lasting
   setTimeout(function () {

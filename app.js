@@ -945,7 +945,9 @@ function renderOverview() {
   const cancelledAhead = S.meetings.filter(m => m.status === 'cancelled' && m.date >= today());
   const later = [...postponed.slice(1), ...[...future, ...cancelledAhead].sort((a, b) => a.date.localeCompare(b.date))].filter(m => m !== next);
   $('#laterBlock').hidden = !later.length;
-  $('#laterList').replaceChildren(...later.map(meetingRow));
+  $('#laterList').replaceChildren(...later.slice(0, 3).map(meetingRow));
+  $('#laterMore').hidden = later.length <= 3;
+  renderFuture(next, later);
 
   const held = past.filter(isActive);
   const map = readingMap();
@@ -965,6 +967,32 @@ function renderOverview() {
     ? h('p', { class: 'prose', text: info.about })
     : h('p', { class: 'muted', text: 'Skriv kort om gruppa, så nye medlemer finn fram.' }));
 
+}
+
+/** Fana «Samlingar»: alle framtidige samlingar, gruppert per månad */
+function renderFuture(next, later) {
+  const box = $('#futureList');
+  if (!S.loaded) { box.replaceChildren(h('p', { class: 'muted', text: 'Hentar planen …' })); return; }
+  const all = next ? [next, ...later] : later;
+  if (!all.length) {
+    box.replaceChildren(h('div', { class: 'empty' },
+      h('span', { class: 'muted', text: 'Ingen framtidige samlingar er sette opp enno.' }),
+      h('button', { class: 'btn primary', onclick: () => openMeeting(null) }, 'Planlegg neste samling')));
+    return;
+  }
+  const out = [];
+  let month = '';
+  for (const m of all) {
+    const mm = m.status === 'postponed' ? 'Utsette' : cap(fmt(m.date, { month: 'long', year: 'numeric' }));
+    if (mm !== month) { month = mm; out.push(h('h4', { class: 'month', text: mm })); }
+    const row = meetingRow(m);
+    if (m === next && m.status !== 'postponed') {
+      row.classList.add('is-next');
+      row.querySelector('.main').prepend(h('span', { class: 'badge soonbadge', text: 'Neste samling · ' + relDays(m.date).toLowerCase() }));
+    }
+    out.push(row);
+  }
+  box.replaceChildren(h('div', { class: 'list' }, out));
 }
 
 function meetingRow(m) {
@@ -1178,7 +1206,7 @@ function scheduleReload(table) {
 /* =====================================================================
    Faner
    ===================================================================== */
-const TABS = ['oversikt', 'lesing', 'wiki', 'forum', 'medlemer'];
+const TABS = ['oversikt', 'samlingar', 'lesing', 'wiki', 'forum', 'medlemer'];
 function showTab(name) {
   document.querySelectorAll('#app nav.tabs button').forEach(b => b.setAttribute('aria-selected', String(b.dataset.tab === name)));
   TABS.forEach(n => $('#pane-' + n).hidden = n !== name);
@@ -1187,6 +1215,8 @@ function showTab(name) {
   window.scrollTo(0, 0);
 }
 document.querySelectorAll('#app nav.tabs button').forEach(b => b.addEventListener('click', () => showTab(b.dataset.tab)));
+$('#laterMore').addEventListener('click', () => showTab('samlingar'));
+$('#planMeeting').addEventListener('click', () => openMeeting(null));
 
 /* =====================================================================
    Samling-dialog med bok- og kapittelval

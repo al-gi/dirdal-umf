@@ -263,6 +263,10 @@ a.chip:hover{border-color:var(--accent)}
 /* Utsett og avlyst */
 .badge{align-self:flex-start;font-size:.74rem;font-weight:700;padding:.1rem .55rem;border-radius:999px;border:1px solid currentColor}
 .badge.cancelled{color:var(--danger)}
+.badge.soonbadge{color:var(--accent)}
+.item.is-next .verse{font-weight:700}
+#futureList h4.month{margin:1.1rem 0 0;font-size:.8rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+#futureList h4.month:first-child{margin-top:.2rem}
 .badge.postponed{color:var(--verse)}
 .item.off.cancelled .verse{text-decoration:line-through;opacity:.6}
 
